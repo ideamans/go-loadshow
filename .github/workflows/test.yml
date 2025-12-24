@@ -42,7 +42,9 @@ jobs:
         with:
           msystem: UCRT64
           update: true
-          install: mingw-w64-ucrt-x86_64-go
+          install: >-
+            make
+            mingw-w64-ucrt-x86_64-go
 
       - name: Install dependencies and run tests (Unix)
         if: runner.os != 'Windows'
@@ -96,7 +98,9 @@ jobs:
         with:
           msystem: UCRT64
           update: true
-          install: mingw-w64-ucrt-x86_64-go
+          install: >-
+            make
+            mingw-w64-ucrt-x86_64-go
 
       - name: Install Chrome
         uses: browser-actions/setup-chrome@v1
@@ -147,7 +151,9 @@ jobs:
         with:
           msystem: UCRT64
           update: true
-          install: mingw-w64-ucrt-x86_64-go
+          install: >-
+            make
+            mingw-w64-ucrt-x86_64-go
 
       - name: Install Chrome
         uses: browser-actions/setup-chrome@v1

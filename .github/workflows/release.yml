@@ -44,7 +44,9 @@ jobs:
         with:
           msystem: UCRT64
           update: true
-          install: mingw-w64-ucrt-x86_64-go
+          install: >-
+            make
+            mingw-w64-ucrt-x86_64-go
 
       - name: Get version
         id: version
