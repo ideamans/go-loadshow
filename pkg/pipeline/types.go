@@ -94,12 +94,14 @@ type Window struct {
 // RecordInput contains parameters for page recording.
 type RecordInput struct {
 	URL               string
-	ViewportWidth     int    // Browser viewport width (e.g., 375 for mobile)
+	ViewportWidth     int       // Browser viewport width (e.g., 375 for mobile)
 	Screen            Dimension // Target screen dimensions from layout (scroll width/height)
 	TimeoutMs         int
 	NetworkConditions ports.NetworkConditions
 	CPUThrottling     float64
 	Headers           map[string]string
+	IgnoreHTTPSErrors bool   // Ignore HTTPS certificate errors
+	ProxyServer       string // HTTP proxy server (e.g., "http://proxy:8080")
 }
 
 // DefaultRecordInput returns RecordInput with default values.
@@ -153,6 +155,7 @@ type BannerInput struct {
 	Title      string
 	LoadTimeMs int
 	TotalBytes int64
+	Credit     string // Custom credit text (default: "loadshow")
 	Theme      BannerTheme
 }
 
@@ -188,7 +191,8 @@ type CompositeInput struct {
 	Banner       *BannerResult // Optional banner
 	Theme        CompositeTheme
 	ShowProgress bool
-	TotalTimeMs  int // Total recording time for progress calculation
+	TotalTimeMs  int   // Total recording time (kept for compatibility)
+	TotalBytes   int64 // Total bytes transferred for traffic-based progress
 }
 
 // CompositeTheme defines composition styling.
@@ -202,10 +206,10 @@ type CompositeTheme struct {
 // DefaultCompositeTheme returns a default composite theme.
 func DefaultCompositeTheme() CompositeTheme {
 	return CompositeTheme{
-		BackgroundColor:  color.RGBA{R: 30, G: 30, B: 30, A: 255},
-		BorderColor:      color.RGBA{R: 80, G: 80, B: 80, A: 255},
-		ProgressBarColor: color.RGBA{R: 76, G: 175, B: 80, A: 255},
-		ProgressBgColor:  color.RGBA{R: 60, G: 60, B: 60, A: 255},
+		BackgroundColor:  color.RGBA{R: 220, G: 220, B: 220, A: 255}, // #dcdcdc 白っぽいグレー
+		BorderColor:      color.RGBA{R: 180, G: 180, B: 180, A: 255}, // #b4b4b4 少し濃いグレー
+		ProgressBarColor: color.RGBA{R: 76, G: 175, B: 80, A: 255},   // #4caf50
+		ProgressBgColor:  color.RGBA{R: 80, G: 80, B: 80, A: 255},    // #505050 濃いめのグレー
 	}
 }
 

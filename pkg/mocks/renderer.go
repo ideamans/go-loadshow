@@ -64,6 +64,10 @@ func (m *Canvas) DrawRectStroke(x, y, w, h int, c color.Color, strokeWidth float
 
 func (m *Canvas) DrawText(text string, x, y int, style ports.TextStyle) {}
 
+func (m *Canvas) MeasureText(text string, style ports.TextStyle) (width, height float64) {
+	return style.FontSize * float64(len(text)) * 0.6, style.FontSize
+}
+
 func (m *Canvas) DrawLine(x1, y1, x2, y2 int, c color.Color, width float64) {}
 
 func (m *Canvas) ToImage() image.Image {

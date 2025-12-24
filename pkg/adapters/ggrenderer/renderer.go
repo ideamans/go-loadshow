@@ -125,6 +125,7 @@ func (c *Canvas) DrawRectStroke(x, y, w, h int, col color.Color, strokeWidth flo
 }
 
 // DrawText draws text at the specified position.
+// The y coordinate represents the vertical center of the text area.
 func (c *Canvas) DrawText(text string, x, y int, style ports.TextStyle) {
 	c.dc.SetColor(style.Color)
 
@@ -135,7 +136,7 @@ func (c *Canvas) DrawText(text string, x, y int, style ports.TextStyle) {
 		}
 	}
 
-	// Calculate alignment offset
+	// Calculate horizontal alignment offset
 	ax := 0.0
 	switch style.Align {
 	case ports.AlignCenter:
@@ -144,7 +145,19 @@ func (c *Canvas) DrawText(text string, x, y int, style ports.TextStyle) {
 		ax = 1.0
 	}
 
+	// ay=0.5 centers text vertically at the given y coordinate
 	c.dc.DrawStringAnchored(text, float64(x), float64(y), ax, 0.5)
+}
+
+// MeasureText returns the width and height of the text.
+func (c *Canvas) MeasureText(text string, style ports.TextStyle) (width, height float64) {
+	// Try to load font if specified
+	if style.FontPath != "" {
+		if err := c.dc.LoadFontFace(style.FontPath, style.FontSize); err != nil {
+			// Fall back to default
+		}
+	}
+	return c.dc.MeasureString(text)
 }
 
 // DrawLine draws a line between two points.

@@ -40,6 +40,9 @@ type Canvas interface {
 	// DrawText draws text at the specified position.
 	DrawText(text string, x, y int, style TextStyle)
 
+	// MeasureText returns the width and height of the text.
+	MeasureText(text string, style TextStyle) (width, height float64)
+
 	// DrawLine draws a line between two points.
 	DrawLine(x1, y1, x2, y2 int, c color.Color, width float64)
 

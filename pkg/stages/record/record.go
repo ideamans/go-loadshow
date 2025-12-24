@@ -49,9 +49,9 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.RecordInput) (pipeli
 		windowWidth = minWindowWidth
 	}
 
-	// Window height: aspect ratio * 1.5x margin for capture timing variations
+	// Window height: aspect ratio * 1.2x margin for capture timing variations
 	// Capped at maxWindowHeight to avoid Chrome rendering issues
-	windowHeight := int(float64(windowWidth) * aspectRatio * 1.5)
+	windowHeight := int(float64(windowWidth) * aspectRatio * 1.2)
 	if windowHeight > maxWindowHeight {
 		windowHeight = maxWindowHeight
 	}
@@ -64,6 +64,9 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.RecordInput) (pipeli
 	// Set window size only (no viewport override)
 	opts.WindowWidth = windowWidth
 	opts.WindowHeight = windowHeight
+	// Merge browser options from input
+	opts.IgnoreHTTPSErrors = input.IgnoreHTTPSErrors
+	opts.ProxyServer = input.ProxyServer
 
 	// Launch browser
 	if err := s.browser.Launch(ctx, opts); err != nil {

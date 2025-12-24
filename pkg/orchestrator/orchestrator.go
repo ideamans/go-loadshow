@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image/color"
 
 	"github.com/user/loadshow/pkg/pipeline"
 	"github.com/user/loadshow/pkg/ports"
@@ -27,6 +28,10 @@ type Config struct {
 	Outdent        int
 	ProgressHeight int
 
+	// Style
+	BackgroundColor [4]uint8 // RGBA
+	BorderColor     [4]uint8 // RGBA
+
 	// Recording
 	ViewportWidth     int
 	TimeoutMs         int
@@ -34,9 +39,14 @@ type Config struct {
 	CPUThrottling     float64
 	Headers           map[string]string
 
+	// Browser options
+	IgnoreHTTPSErrors bool
+	ProxyServer       string
+
 	// Banner
 	BannerEnabled bool
 	BannerHeight  int
+	Credit        string // Banner credit text
 
 	// Composition
 	ShowProgress bool
@@ -201,6 +211,8 @@ func (o *Orchestrator) buildRecordInput(config Config, layout pipeline.LayoutRes
 		NetworkConditions: config.NetworkConditions,
 		CPUThrottling:     config.CPUThrottling,
 		Headers:           config.Headers,
+		IgnoreHTTPSErrors: config.IgnoreHTTPSErrors,
+		ProxyServer:       config.ProxyServer,
 	}
 }
 
@@ -212,6 +224,7 @@ func (o *Orchestrator) buildBannerInput(config Config, record pipeline.RecordRes
 		Title:      record.PageInfo.Title,
 		LoadTimeMs: record.Timing.TotalDurationMs,
 		TotalBytes: getTotalBytes(record.Frames),
+		Credit:     config.Credit,
 		Theme:      pipeline.DefaultBannerTheme(),
 	}
 }
@@ -222,13 +235,23 @@ func (o *Orchestrator) buildCompositeInput(
 	record pipeline.RecordResult,
 	banner *pipeline.BannerResult,
 ) pipeline.CompositeInput {
+	theme := pipeline.DefaultCompositeTheme()
+	// Override theme colors if specified
+	if config.BackgroundColor != [4]uint8{} {
+		theme.BackgroundColor = rgbaFromArray(config.BackgroundColor)
+	}
+	if config.BorderColor != [4]uint8{} {
+		theme.BorderColor = rgbaFromArray(config.BorderColor)
+	}
+
 	return pipeline.CompositeInput{
 		RawFrames:    record.Frames,
 		Layout:       layout,
 		Banner:       banner,
-		Theme:        pipeline.DefaultCompositeTheme(),
+		Theme:        theme,
 		ShowProgress: config.ShowProgress,
 		TotalTimeMs:  record.Timing.TotalDurationMs,
+		TotalBytes:   getTotalBytes(record.Frames),
 	}
 }
 
@@ -254,4 +277,8 @@ func getTotalBytes(frames []pipeline.RawFrame) int64 {
 		return 0
 	}
 	return frames[len(frames)-1].TotalBytes
+}
+
+func rgbaFromArray(c [4]uint8) color.RGBA {
+	return color.RGBA{R: c[0], G: c[1], B: c[2], A: c[3]}
 }

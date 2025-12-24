@@ -82,6 +82,27 @@ func (b *Browser) Launch(ctx context.Context, opts ports.BrowserOptions) error {
 			chromedp.Flag("window-size", fmt.Sprintf("%d,%d", opts.WindowWidth, opts.WindowHeight)))
 	}
 
+	// Ignore HTTPS certificate errors
+	if opts.IgnoreHTTPSErrors {
+		chromedpOpts = append(chromedpOpts,
+			chromedp.Flag("ignore-certificate-errors", true),
+			chromedp.Flag("ignore-certificate-errors-spki-list", true),
+			chromedp.Flag("allow-insecure-localhost", true))
+	}
+
+	// HTTP proxy server
+	if opts.ProxyServer != "" {
+		chromedpOpts = append(chromedpOpts,
+			chromedp.Flag("proxy-server", opts.ProxyServer))
+	}
+
+	// Additional flags for server/background execution
+	chromedpOpts = append(chromedpOpts,
+		chromedp.Flag("disable-gpu", true),
+		chromedp.Flag("disable-software-rasterizer", true),
+		chromedp.Flag("single-process", false),
+		chromedp.Flag("disable-setuid-sandbox", true))
+
 	b.allocCtx, b.allocCancel = chromedp.NewExecAllocator(ctx, chromedpOpts...)
 	b.ctx, b.cancel = chromedp.NewContext(b.allocCtx)
 

@@ -42,12 +42,14 @@ type Browser interface {
 
 // BrowserOptions configures browser launch settings.
 type BrowserOptions struct {
-	Headless     bool
-	ChromePath   string
-	UserAgent    string
-	Headers      map[string]string
-	WindowWidth  int // Initial window width (for screencast)
-	WindowHeight int // Initial window height (for screencast)
+	Headless          bool
+	ChromePath        string
+	UserAgent         string
+	Headers           map[string]string
+	WindowWidth       int    // Initial window width (for screencast)
+	WindowHeight      int    // Initial window height (for screencast)
+	IgnoreHTTPSErrors bool   // Ignore HTTPS certificate errors
+	ProxyServer       string // HTTP proxy server (e.g., "http://proxy:8080")
 }
 
 // NetworkConditions defines network throttling parameters.

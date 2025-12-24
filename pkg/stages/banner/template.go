@@ -21,12 +21,15 @@ type TemplateVars struct {
 }
 
 // NewTemplateVars creates template variables from banner input.
-func NewTemplateVars(width int, url, title string, loadTimeMs int, totalBytes int64) TemplateVars {
+func NewTemplateVars(width int, url, title string, loadTimeMs int, totalBytes int64, credit string) TemplateVars {
+	if credit == "" {
+		credit = "loadshow"
+	}
 	return TemplateVars{
 		BodyWidth:       width,
 		MainTitle:       title,
 		SubTitle:        url,
-		Credit:          "loadshow",
+		Credit:          credit,
 		CreatedAt:       time.Now().Format("2006/01/02 15:04:05"),
 		TrafficLabel:    "Traffic",
 		TrafficValue:    fmt.Sprintf("%.2f MB", float64(totalBytes)/1024/1024),

@@ -34,6 +34,7 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.BannerInput) (pipeli
 		input.Title,
 		input.LoadTimeMs,
 		input.TotalBytes,
+		input.Credit,
 	)
 
 	// Render HTML template

@@ -22,6 +22,7 @@ func main() {
 			"サンプルページタイトル - Example Page Title",
 			2500,
 			1024*1024*5, // 5MB
+			"",          // Credit (default: "loadshow")
 		)
 
 		html, err := banner.RenderHTML(vars)

@@ -194,14 +194,15 @@ func (s *Stage) composeFrame(input pipeline.CompositeInput, frameIndex int) (pip
 	}
 
 	// Draw progress bar if enabled (at top: bannerHeight, just below banner)
-	if input.ShowProgress && progressHeight > 0 && input.TotalTimeMs > 0 {
+	// Progress is based on traffic (bytes downloaded)
+	if input.ShowProgress && progressHeight > 0 && input.TotalBytes > 0 {
 		// Last frame should always show 100% progress
 		isLastFrame := frameIndex == len(input.RawFrames)-1
 		var progress float64
 		if isLastFrame {
 			progress = 1.0
 		} else {
-			progress = float64(rawFrame.TimestampMs) / float64(input.TotalTimeMs)
+			progress = float64(rawFrame.TotalBytes) / float64(input.TotalBytes)
 			if progress > 1.0 {
 				progress = 1.0
 			}
@@ -227,6 +228,19 @@ func (s *Stage) composeFrame(input pipeline.CompositeInput, frameIndex int) (pip
 				input.Theme.ProgressBarColor,
 			)
 		}
+
+		// Draw percentage text at right edge (white text)
+		percentText := fmt.Sprintf("%d%%", int(progress*100))
+		textStyle := ports.TextStyle{
+			FontSize: float64(progressHeight) * 0.7,
+			Color:    image.White,
+			Align:    ports.AlignRight,
+		}
+		// Measure text height and calculate vertical center offset
+		_, textHeight := canvas.MeasureText(percentText, textStyle)
+		offset := (float64(progressHeight) - textHeight) / 2.0
+		textY := bannerHeight + int(offset+textHeight/2)
+		canvas.DrawText(percentText, canvasWidth-4, textY, textStyle)
 	}
 
 	// Draw column borders (at column.y + canvasOffset)

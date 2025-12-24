@@ -108,9 +108,9 @@ func Defaults() Config {
 		Workers:      4,
 		ShowProgress: true,
 		Theme: ThemeConfig{
-			BackgroundColor:  "#1a1a2e",
-			BorderColor:      "#333355",
-			ProgressBarColor: "#4ade80",
+			BackgroundColor:  "#dcdcdc",
+			BorderColor:      "#b4b4b4",
+			ProgressBarColor: "#4caf50",
 		},
 
 		// Encoding
