@@ -128,6 +128,7 @@ jobs:
   e2e-test:
     name: E2E Tests (${{ matrix.os }})
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
     # Run in parallel on main branch, or alone on e2e branch
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/e2e'
     strategy:

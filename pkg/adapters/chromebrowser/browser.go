@@ -287,8 +287,10 @@ func (b *Browser) StopScreencast() error {
 
 	b.screencastActive = false
 
-	// Stop screencast
-	chromedp.Run(b.ctx, page.StopScreencast())
+	// Stop screencast with timeout to prevent hanging
+	stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	chromedp.Run(stopCtx, page.StopScreencast())
 
 	// Close channel
 	close(b.screencastChan)
@@ -323,9 +325,14 @@ func (b *Browser) GetPageInfo() (*ports.PageInfo, error) {
 func (b *Browser) Close() error {
 	b.StopScreencast()
 
+	// Cancel browser context first
 	if b.cancel != nil {
 		b.cancel()
 	}
+
+	// Give Chrome a moment to shut down gracefully, then force kill
+	time.Sleep(100 * time.Millisecond)
+
 	if b.allocCancel != nil {
 		b.allocCancel()
 	}
