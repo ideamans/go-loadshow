@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -14,6 +15,22 @@ import (
 
 const testURL = "https://dummy-ec-site.ideamans.com/"
 
+// getBinaryName returns the test binary name with platform-specific extension
+func getBinaryName() string {
+	if runtime.GOOS == "windows" {
+		return "loadshow-test.exe"
+	}
+	return "loadshow-test"
+}
+
+// getBinaryPath returns the path to execute the test binary
+func getBinaryPath() string {
+	if runtime.GOOS == "windows" {
+		return ".\\loadshow-test.exe"
+	}
+	return "./loadshow-test"
+}
+
 // TestRecordCommand tests the record subcommand with a real website
 func TestRecordCommand(t *testing.T) {
 	if os.Getenv("LOADSHOW_E2E") != "1" {
@@ -21,12 +38,12 @@ func TestRecordCommand(t *testing.T) {
 	}
 
 	// Build the CLI first
-	buildCmd := exec.Command("go", "build", "-o", "loadshow-test", "./cmd/loadshow")
+	buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
 	buildCmd.Dir = getProjectRoot(t)
 	if out, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
 	}
-	defer os.Remove(filepath.Join(getProjectRoot(t), "loadshow-test"))
+	defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 
 	// Create temp output file
 	tmpFile, err := os.CreateTemp("", "loadshow-e2e-*.mp4")
@@ -38,7 +55,7 @@ func TestRecordCommand(t *testing.T) {
 
 	// Run the record command
 	cmd := exec.Command(
-		"./loadshow-test",
+		getBinaryPath(),
 		"record",
 		testURL,
 		"-o", tmpFile.Name(),
@@ -98,12 +115,12 @@ func TestRecordDesktopPreset(t *testing.T) {
 	}
 
 	// Build the CLI
-	buildCmd := exec.Command("go", "build", "-o", "loadshow-test", "./cmd/loadshow")
+	buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
 	buildCmd.Dir = getProjectRoot(t)
 	if out, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
 	}
-	defer os.Remove(filepath.Join(getProjectRoot(t), "loadshow-test"))
+	defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 
 	tmpFile, err := os.CreateTemp("", "loadshow-e2e-desktop-*.mp4")
 	if err != nil {
@@ -113,7 +130,7 @@ func TestRecordDesktopPreset(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 
 	cmd := exec.Command(
-		"./loadshow-test",
+		getBinaryPath(),
 		"record",
 		testURL,
 		"-o", tmpFile.Name(),
@@ -149,12 +166,12 @@ func TestRecordWithCustomDimensions(t *testing.T) {
 		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
 	}
 
-	buildCmd := exec.Command("go", "build", "-o", "loadshow-test", "./cmd/loadshow")
+	buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
 	buildCmd.Dir = getProjectRoot(t)
 	if out, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
 	}
-	defer os.Remove(filepath.Join(getProjectRoot(t), "loadshow-test"))
+	defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 
 	tmpFile, err := os.CreateTemp("", "loadshow-e2e-custom-*.mp4")
 	if err != nil {
@@ -164,7 +181,7 @@ func TestRecordWithCustomDimensions(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 
 	cmd := exec.Command(
-		"./loadshow-test",
+		getBinaryPath(),
 		"record",
 		testURL,
 		"-o", tmpFile.Name(),
@@ -212,12 +229,12 @@ func TestRecordWithDebugOutput(t *testing.T) {
 		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
 	}
 
-	buildCmd := exec.Command("go", "build", "-o", "loadshow-test", "./cmd/loadshow")
+	buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
 	buildCmd.Dir = getProjectRoot(t)
 	if out, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
 	}
-	defer os.Remove(filepath.Join(getProjectRoot(t), "loadshow-test"))
+	defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 
 	// Create temp directories
 	tmpDir, err := os.MkdirTemp("", "loadshow-e2e-debug-*")
@@ -230,7 +247,7 @@ func TestRecordWithDebugOutput(t *testing.T) {
 	debugDir := filepath.Join(tmpDir, "debug")
 
 	cmd := exec.Command(
-		"./loadshow-test",
+		getBinaryPath(),
 		"record",
 		testURL,
 		"-o", outputPath,
@@ -281,14 +298,14 @@ func TestVersionCommand(t *testing.T) {
 		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
 	}
 
-	buildCmd := exec.Command("go", "build", "-o", "loadshow-test", "./cmd/loadshow")
+	buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
 	buildCmd.Dir = getProjectRoot(t)
 	if out, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
 	}
-	defer os.Remove(filepath.Join(getProjectRoot(t), "loadshow-test"))
+	defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 
-	cmd := exec.Command("./loadshow-test", "version")
+	cmd := exec.Command(getBinaryPath(), "version")
 	cmd.Dir = getProjectRoot(t)
 
 	out, err := cmd.CombinedOutput()
@@ -307,12 +324,12 @@ func TestJuxtaposeCommand(t *testing.T) {
 		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
 	}
 
-	buildCmd := exec.Command("go", "build", "-o", "loadshow-test", "./cmd/loadshow")
+	buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
 	buildCmd.Dir = getProjectRoot(t)
 	if out, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
 	}
-	defer os.Remove(filepath.Join(getProjectRoot(t), "loadshow-test"))
+	defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 
 	// First, create two videos to juxtapose
 	tmpDir, err := os.MkdirTemp("", "loadshow-e2e-juxta-*")
@@ -327,7 +344,7 @@ func TestJuxtaposeCommand(t *testing.T) {
 
 	// Create left video
 	cmd := exec.Command(
-		"./loadshow-test",
+		getBinaryPath(),
 		"record",
 		testURL,
 		"-o", leftPath,
@@ -340,7 +357,7 @@ func TestJuxtaposeCommand(t *testing.T) {
 
 	// Create right video
 	cmd = exec.Command(
-		"./loadshow-test",
+		getBinaryPath(),
 		"record",
 		testURL,
 		"-o", rightPath,
@@ -353,7 +370,7 @@ func TestJuxtaposeCommand(t *testing.T) {
 
 	// Run juxtapose (currently returns placeholder)
 	cmd = exec.Command(
-		"./loadshow-test",
+		getBinaryPath(),
 		"juxtapose",
 		leftPath,
 		rightPath,
@@ -380,15 +397,15 @@ func TestRecordWithProxy(t *testing.T) {
 	// This test just verifies the proxy option is accepted
 	// Actual proxy testing would require a proxy server
 
-	buildCmd := exec.Command("go", "build", "-o", "loadshow-test", "./cmd/loadshow")
+	buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
 	buildCmd.Dir = getProjectRoot(t)
 	if out, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
 	}
-	defer os.Remove(filepath.Join(getProjectRoot(t), "loadshow-test"))
+	defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 
 	// Just verify the help shows the proxy option
-	cmd := exec.Command("./loadshow-test", "record", "--help")
+	cmd := exec.Command(getBinaryPath(), "record", "--help")
 	cmd.Dir = getProjectRoot(t)
 
 	out, err := cmd.CombinedOutput()
