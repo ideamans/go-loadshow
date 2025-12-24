@@ -50,6 +50,7 @@ type BrowserOptions struct {
 	WindowHeight      int    // Initial window height (for screencast)
 	IgnoreHTTPSErrors bool   // Ignore HTTPS certificate errors
 	ProxyServer       string // HTTP proxy server (e.g., "http://proxy:8080")
+	Incognito         bool   // Run browser in incognito mode (default: true)
 }
 
 // NetworkConditions defines network throttling parameters.

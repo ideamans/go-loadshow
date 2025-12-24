@@ -83,9 +83,10 @@ type RecordCmd struct {
 
 	// Browser options
 	NoHeadless        bool   `help:"Run browser in non-headless mode."`
-	ChromePath        string `help:"Path to Chrome executable."`
+	ChromePath        string `help:"Path to Chrome executable (falls back to CHROME_PATH env, then system default)."`
 	IgnoreHTTPSErrors bool   `help:"Ignore HTTPS certificate errors."`
 	ProxyServer       string `help:"HTTP proxy server (e.g., http://proxy:8080)."`
+	NoIncognito       bool   `help:"Disable incognito mode (incognito is enabled by default)."`
 }
 
 // JuxtaposeCmd defines the juxtapose subcommand.
@@ -158,8 +159,11 @@ func (cmd *RecordCmd) Run() error {
 	// Create stages
 	layoutStage := layout.NewStage()
 	recordStage := record.New(browser, sink, ports.BrowserOptions{
-		Headless:   !cmd.NoHeadless,
-		ChromePath: cmd.ChromePath,
+		Headless:          !cmd.NoHeadless,
+		ChromePath:        cmd.ChromePath,
+		Incognito:         !cmd.NoIncognito,
+		IgnoreHTTPSErrors: cmd.IgnoreHTTPSErrors,
+		ProxyServer:       cmd.ProxyServer,
 	})
 	bannerStage := banner.NewStage(htmlCapturer, sink)
 	compositeStage := composite.NewStage(renderer, sink, workers)

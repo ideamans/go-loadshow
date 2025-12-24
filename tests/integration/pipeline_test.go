@@ -282,7 +282,8 @@ func TestRecordStageWithRealBrowser(t *testing.T) {
 
 	browser := chromebrowser.New()
 	recordStage := record.New(browser, nullsink.New(), ports.BrowserOptions{
-		Headless: true,
+		Headless:  true,
+		Incognito: true,
 	})
 
 	input := pipeline.RecordInput{
@@ -337,7 +338,7 @@ func TestOrchestratorWithDebugSink(t *testing.T) {
 
 	// Create stages
 	layoutStage := layout.NewStage()
-	recordStage := record.New(browser, sink, ports.BrowserOptions{Headless: true})
+	recordStage := record.New(browser, sink, ports.BrowserOptions{Headless: true, Incognito: true})
 	bannerStage := banner.NewStage(htmlCapturer, sink)
 	compositeStage := composite.NewStage(renderer, sink, 2)
 	encodeStage := encode.NewStage(encoder)

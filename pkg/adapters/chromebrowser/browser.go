@@ -67,8 +67,16 @@ func (b *Browser) Launch(ctx context.Context, opts ports.BrowserOptions) error {
 	// Hide scrollbars for cleaner screenshots
 	chromedpOpts = append(chromedpOpts, chromedp.Flag("hide-scrollbars", true))
 
-	if opts.ChromePath != "" {
-		chromedpOpts = append(chromedpOpts, chromedp.ExecPath(opts.ChromePath))
+	// Resolve Chrome path: CLI option → CHROME_PATH env → system defaults
+	chromePath := ResolveChromePath(opts.ChromePath)
+	if chromePath == "" {
+		return fmt.Errorf("chrome not found: please install Chrome/Chromium, set CHROME_PATH environment variable, or use --chrome-path option")
+	}
+	chromedpOpts = append(chromedpOpts, chromedp.ExecPath(chromePath))
+
+	// Incognito mode
+	if opts.Incognito {
+		chromedpOpts = append(chromedpOpts, chromedp.Flag("incognito", true))
 	}
 
 	if opts.UserAgent != "" {
