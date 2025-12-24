@@ -19,19 +19,15 @@ jobs:
           - os: linux
             arch: amd64
             runner: ubuntu-latest
-            artifact: loadshow-linux-amd64
           - os: linux
             arch: arm64
             runner: ubuntu-24.04-arm
-            artifact: loadshow-linux-arm64
           - os: darwin
             arch: arm64
             runner: macos-14
-            artifact: loadshow-darwin-arm64
           - os: windows
             arch: amd64
             runner: windows-latest
-            artifact: loadshow-windows-amd64.exe
 
     steps:
       - name: Checkout code
@@ -42,74 +38,40 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Install libaom (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libaom-dev pkg-config
-
-      - name: Install libaom (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install aom pkg-config
-
       - name: Setup MSYS2 (Windows)
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
           update: true
-          install: >-
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-pkg-config
-            mingw-w64-ucrt-x86_64-aom
+          install: mingw-w64-ucrt-x86_64-go
 
       - name: Get version
         id: version
         shell: bash
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Build (Linux/macOS)
+      - name: Build and package (Unix)
         if: runner.os != 'Windows'
         run: |
-          go build -ldflags "-X main.version=${{ steps.version.outputs.VERSION }}" \
-            -o ${{ matrix.artifact }} ./cmd/loadshow
+          make deps-static
+          make build-static VERSION=${{ steps.version.outputs.VERSION }}
+          make package VERSION=${{ steps.version.outputs.VERSION }}
 
-      - name: Build (Windows)
+      - name: Build and package (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: |
           export PATH="/ucrt64/bin:$PATH"
-          export PKG_CONFIG_PATH="/ucrt64/lib/pkgconfig"
-          export CGO_ENABLED=1
-          export CC=gcc
-          go build -ldflags "-X main.version=${{ steps.version.outputs.VERSION }}" \
-            -o ${{ matrix.artifact }} ./cmd/loadshow
+          make deps-static
+          make build-static VERSION=${{ steps.version.outputs.VERSION }}
+          make package VERSION=${{ steps.version.outputs.VERSION }}
 
-      - name: Create archive (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          tar -czvf ${{ matrix.artifact }}.tar.gz ${{ matrix.artifact }}
-
-      - name: Create archive (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Compress-Archive -Path ${{ matrix.artifact }} -DestinationPath ${{ matrix.artifact }}.zip
-
-      - name: Upload artifact (Unix)
-        if: runner.os != 'Windows'
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}.tar.gz
-
-      - name: Upload artifact (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}.zip
+          name: loadshow_${{ steps.version.outputs.VERSION }}_${{ matrix.os }}_${{ matrix.arch }}
+          path: loadshow_${{ steps.version.outputs.VERSION }}_*
 
   release:
     name: Create Release
@@ -128,6 +90,19 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
+      - name: Prepare release files and generate checksums
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          mkdir -p dist
+
+          # Move all archives to dist directory
+          find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec mv {} dist/ \;
+
+          # Generate checksums (GoReleaser compatible format)
+          cd dist
+          sha256sum * > loadshow_${VERSION}_checksums.txt
+          cat loadshow_${VERSION}_checksums.txt
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -135,10 +110,6 @@ jobs:
           draft: false
           prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
           generate_release_notes: true
-          files: |
-            artifacts/loadshow-linux-amd64/loadshow-linux-amd64.tar.gz
-            artifacts/loadshow-linux-arm64/loadshow-linux-arm64.tar.gz
-            artifacts/loadshow-darwin-arm64/loadshow-darwin-arm64.tar.gz
-            artifacts/loadshow-windows-amd64.exe/loadshow-windows-amd64.exe.zip
+          files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

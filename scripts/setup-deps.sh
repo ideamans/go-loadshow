@@ -1,0 +1,121 @@
+#!/bin/bash
+set -e
+
+# Configuration
+LIBAOM_VERSION="v3.8.0"
+LIBAOM_REPO="https://aomedia.googlesource.com/aom"
+
+# Parse arguments
+STATIC=false
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --static) STATIC=true; shift ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
+    esac
+done
+
+# Detect OS
+detect_os() {
+    case "$(uname -s)" in
+        Linux*)  echo "linux" ;;
+        Darwin*) echo "darwin" ;;
+        MINGW*|MSYS*|CYGWIN*) echo "windows" ;;
+        *) echo "unknown" ;;
+    esac
+}
+
+OS=$(detect_os)
+echo "Detected OS: $OS"
+echo "Static build: $STATIC"
+
+# Build libaom from source (for static linking)
+build_libaom_static() {
+    local install_prefix=$1
+    local cc=${2:-gcc}
+
+    echo "Building libaom ${LIBAOM_VERSION} from source..."
+
+    # Clone if not exists
+    if [ ! -d "aom" ]; then
+        git clone --depth 1 --branch "${LIBAOM_VERSION}" "${LIBAOM_REPO}"
+    fi
+
+    cd aom
+    rm -rf build && mkdir build && cd build
+
+    CC=$cc cmake .. -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DENABLE_SHARED=OFF \
+        -DCONFIG_AV1_ENCODER=1 \
+        -DCONFIG_AV1_DECODER=1 \
+        -DCMAKE_INSTALL_PREFIX="${install_prefix}"
+
+    ninja
+
+    if [ "$OS" = "windows" ]; then
+        ninja install
+    else
+        sudo ninja install
+    fi
+
+    cd ../..
+    echo "libaom installed to ${install_prefix}"
+}
+
+# Linux setup
+setup_linux() {
+    echo "Setting up dependencies for Linux..."
+    sudo apt-get update
+
+    if [ "$STATIC" = true ]; then
+        sudo apt-get install -y cmake ninja-build pkg-config musl-tools git
+        build_libaom_static "/usr/local/musl" "musl-gcc"
+    else
+        sudo apt-get install -y libaom-dev pkg-config
+    fi
+}
+
+# macOS setup
+setup_darwin() {
+    echo "Setting up dependencies for macOS..."
+    brew install cmake ninja pkg-config
+
+    if [ "$STATIC" = true ]; then
+        build_libaom_static "/usr/local"
+    else
+        brew install aom
+    fi
+}
+
+# Windows (MSYS2) setup
+setup_windows() {
+    echo "Setting up dependencies for Windows (MSYS2)..."
+
+    if [ "$STATIC" = true ]; then
+        pacman -S --noconfirm --needed \
+            mingw-w64-ucrt-x86_64-cmake \
+            mingw-w64-ucrt-x86_64-ninja \
+            mingw-w64-ucrt-x86_64-gcc \
+            mingw-w64-ucrt-x86_64-pkg-config \
+            git
+        build_libaom_static "/ucrt64"
+    else
+        pacman -S --noconfirm --needed \
+            mingw-w64-ucrt-x86_64-gcc \
+            mingw-w64-ucrt-x86_64-pkg-config \
+            mingw-w64-ucrt-x86_64-aom
+    fi
+}
+
+# Main
+case $OS in
+    linux)   setup_linux ;;
+    darwin)  setup_darwin ;;
+    windows) setup_windows ;;
+    *)
+        echo "Unsupported OS: $OS"
+        exit 1
+        ;;
+esac
+
+echo "Dependencies setup complete!"

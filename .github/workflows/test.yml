@@ -20,13 +20,12 @@ jobs:
           - os: linux
             arch: arm64
             runner: ubuntu-24.04-arm
-          - os: macos
+          - os: darwin
             arch: arm64
             runner: macos-14
           - os: windows
             arch: amd64
             runner: windows-latest
-            msys: UCRT64
 
     steps:
       - name: Checkout code
@@ -37,41 +36,27 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Install libaom (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libaom-dev pkg-config
-
-      - name: Install libaom (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install aom pkg-config
-
       - name: Setup MSYS2 (Windows)
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
           update: true
-          install: >-
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-pkg-config
-            mingw-w64-ucrt-x86_64-aom
+          install: mingw-w64-ucrt-x86_64-go
 
-      - name: Run unit tests (Unix)
+      - name: Install dependencies and run tests (Unix)
         if: runner.os != 'Windows'
-        run: go test -v -race -coverprofile=coverage.out ./pkg/...
+        run: |
+          make deps
+          make unit-test-coverage
 
-      - name: Run unit tests (Windows)
+      - name: Install dependencies and run tests (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: |
           export PATH="/ucrt64/bin:$PATH"
-          export PKG_CONFIG_PATH="/ucrt64/lib/pkgconfig"
-          export CGO_ENABLED=1
-          export CC=gcc
-          go test -v -coverprofile=coverage.out ./pkg/...
+          make deps
+          make unit-test
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -91,7 +76,7 @@ jobs:
         include:
           - os: linux
             runner: ubuntu-latest
-          - os: macos
+          - os: darwin
             runner: macos-14
           - os: windows
             runner: windows-latest
@@ -105,61 +90,32 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libaom-dev pkg-config
-
-      - name: Install Chromium (Linux)
-        if: runner.os == 'Linux'
-        uses: browser-actions/setup-chrome@v1
-        with:
-          chrome-version: stable
-
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install aom pkg-config
-
-      - name: Install Chrome (macOS)
-        if: runner.os == 'macOS'
-        uses: browser-actions/setup-chrome@v1
-        with:
-          chrome-version: stable
-
       - name: Setup MSYS2 (Windows)
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
           update: true
-          install: >-
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-pkg-config
-            mingw-w64-ucrt-x86_64-aom
+          install: mingw-w64-ucrt-x86_64-go
 
-      - name: Install Chrome (Windows)
-        if: runner.os == 'Windows'
+      - name: Install Chrome
         uses: browser-actions/setup-chrome@v1
         with:
           chrome-version: stable
 
-      - name: Run integration tests (Unix)
+      - name: Install dependencies and run tests (Unix)
         if: runner.os != 'Windows'
-        run: go test -v -timeout 5m ./tests/integration/...
-        env:
-          CHROME_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
+        run: |
+          make deps
+          make integration-test
 
-      - name: Run integration tests (Windows)
+      - name: Install dependencies and run tests (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: |
           export PATH="/ucrt64/bin:$PATH"
-          export PKG_CONFIG_PATH="/ucrt64/lib/pkgconfig"
-          export CGO_ENABLED=1
-          export CC=gcc
-          go test -v -timeout 5m ./tests/integration/...
+          make deps
+          make integration-test
 
   e2e-test:
     name: E2E Tests (${{ matrix.os }})
@@ -171,7 +127,7 @@ jobs:
         include:
           - os: linux
             runner: ubuntu-latest
-          - os: macos
+          - os: darwin
             runner: macos-14
           - os: windows
             runner: windows-latest
@@ -185,60 +141,29 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libaom-dev pkg-config
-
-      - name: Install Chromium (Linux)
-        if: runner.os == 'Linux'
-        uses: browser-actions/setup-chrome@v1
-        with:
-          chrome-version: stable
-
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install aom pkg-config
-
-      - name: Install Chrome (macOS)
-        if: runner.os == 'macOS'
-        uses: browser-actions/setup-chrome@v1
-        with:
-          chrome-version: stable
-
       - name: Setup MSYS2 (Windows)
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
           update: true
-          install: >-
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-pkg-config
-            mingw-w64-ucrt-x86_64-aom
+          install: mingw-w64-ucrt-x86_64-go
 
-      - name: Install Chrome (Windows)
-        if: runner.os == 'Windows'
+      - name: Install Chrome
         uses: browser-actions/setup-chrome@v1
         with:
           chrome-version: stable
 
-      - name: Run E2E tests (Unix)
+      - name: Install dependencies and run tests (Unix)
         if: runner.os != 'Windows'
-        run: go test -v -timeout 10m ./tests/e2e/...
-        env:
-          LOADSHOW_E2E: "1"
-          CHROME_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
+        run: |
+          make deps
+          make e2e-test
 
-      - name: Run E2E tests (Windows)
+      - name: Install dependencies and run tests (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: |
           export PATH="/ucrt64/bin:$PATH"
-          export PKG_CONFIG_PATH="/ucrt64/lib/pkgconfig"
-          export CGO_ENABLED=1
-          export CC=gcc
-          export LOADSHOW_E2E=1
-          go test -v -timeout 10m ./tests/e2e/...
+          make deps
+          make e2e-test

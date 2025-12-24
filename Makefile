@@ -1,57 +1,83 @@
-.PHONY: all build test unit-test integration-test e2e-test lint clean install-deps help
+.PHONY: all build build-static test unit-test integration-test e2e-test lint clean deps deps-static package help
+
+# Variables
+VERSION ?= dev
+OUTPUT ?= loadshow
 
 # Default target
 all: build
 
-# Build the CLI
+# ============================================================================
+# Dependencies
+# ============================================================================
+
+# Install dependencies (dynamic linking, for development/testing)
+deps:
+	@bash scripts/setup-deps.sh
+
+# Install dependencies (static linking, for release builds)
+deps-static:
+	@bash scripts/setup-deps.sh --static
+
+# ============================================================================
+# Build
+# ============================================================================
+
+# Build the CLI (dynamic linking)
 build:
-	go build -o loadshow ./cmd/loadshow
+	@bash scripts/build.sh --output $(OUTPUT)
 
-# Build with version info
-build-release:
-	go build -ldflags "-X main.version=$(VERSION)" -o loadshow ./cmd/loadshow
+# Build the CLI with version info (dynamic linking)
+build-version:
+	@bash scripts/build.sh --output $(OUTPUT) --version $(VERSION)
 
-# Install dependencies (for development)
-install-deps:
-	@echo "Installing dependencies..."
-	@if [ "$$(uname)" = "Darwin" ]; then \
-		brew install aom pkg-config || true; \
-	elif [ "$$(uname)" = "Linux" ]; then \
-		sudo apt-get update && sudo apt-get install -y libaom-dev pkg-config || true; \
-	fi
+# Build the CLI (static linking, for release)
+build-static:
+	@bash scripts/build.sh --static --output $(OUTPUT) --version $(VERSION)
+
+# ============================================================================
+# Test
+# ============================================================================
 
 # Run all tests (unit + integration, excluding E2E)
 test: unit-test integration-test
 
 # Run unit tests only
 unit-test:
-	@echo "Running unit tests..."
-	go test -v -race ./pkg/...
+	@bash scripts/test.sh --unit
 
 # Run unit tests with coverage
 unit-test-coverage:
-	@echo "Running unit tests with coverage..."
-	go test -v -race -coverprofile=coverage.out ./pkg/...
-	go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report: coverage.html"
+	@bash scripts/test.sh --unit --coverage
 
 # Run integration tests (requires Chrome)
 integration-test:
-	@echo "Running integration tests..."
-	go test -v -timeout 5m ./tests/integration/...
+	@bash scripts/test.sh --integration
 
 # Run E2E tests (requires Chrome and network access)
 e2e-test:
-	@echo "Running E2E tests..."
-	LOADSHOW_E2E=1 go test -v -timeout 10m ./tests/e2e/...
+	@bash scripts/test.sh --e2e
 
 # Run all tests including E2E
-test-all: unit-test integration-test e2e-test
+test-all:
+	@bash scripts/test.sh --all
 
 # Run quick tests (unit tests only, no race detector)
 test-quick:
 	@echo "Running quick tests..."
 	go test ./pkg/...
+
+# ============================================================================
+# Package (for release)
+# ============================================================================
+
+# Create release archive
+package:
+	@bash scripts/package.sh --version $(VERSION) --binary $(OUTPUT)
+
+# ============================================================================
+# Development Tools
+# ============================================================================
 
 # Lint the code
 lint:
@@ -65,9 +91,10 @@ fmt:
 
 # Clean build artifacts
 clean:
-	rm -f loadshow loadshow-test
+	rm -f loadshow loadshow.exe loadshow-test
 	rm -f coverage.out coverage.html
-	rm -rf ./debug ./tmp
+	rm -f *.tar.gz *.zip
+	rm -rf ./debug ./tmp ./aom
 
 # Run a quick demo recording
 demo:
@@ -75,20 +102,44 @@ demo:
 	./loadshow record https://dummy-ec-site.ideamans.com/ -o demo.mp4 -p mobile
 	@echo "Demo video saved to demo.mp4"
 
-# Show help
+# ============================================================================
+# Help
+# ============================================================================
+
 help:
 	@echo "Available targets:"
-	@echo "  make build              - Build the CLI"
-	@echo "  make test               - Run unit and integration tests"
-	@echo "  make unit-test          - Run unit tests only"
-	@echo "  make unit-test-coverage - Run unit tests with coverage report"
-	@echo "  make integration-test   - Run integration tests (requires Chrome)"
-	@echo "  make e2e-test           - Run E2E tests (requires Chrome + network)"
-	@echo "  make test-all           - Run all tests including E2E"
-	@echo "  make test-quick         - Run quick unit tests without race detector"
-	@echo "  make lint               - Run linter"
-	@echo "  make fmt                - Format code"
-	@echo "  make clean              - Clean build artifacts"
-	@echo "  make install-deps       - Install system dependencies"
-	@echo "  make demo               - Record a demo video"
-	@echo "  make help               - Show this help"
+	@echo ""
+	@echo "  Dependencies:"
+	@echo "    make deps             - Install dependencies (dynamic, for dev/test)"
+	@echo "    make deps-static      - Install dependencies (static, for release)"
+	@echo ""
+	@echo "  Build:"
+	@echo "    make build            - Build the CLI (dynamic linking)"
+	@echo "    make build-version    - Build with version (dynamic)"
+	@echo "    make build-static     - Build for release (static linking)"
+	@echo ""
+	@echo "  Test:"
+	@echo "    make test             - Run unit and integration tests"
+	@echo "    make unit-test        - Run unit tests only"
+	@echo "    make unit-test-coverage - Run unit tests with coverage"
+	@echo "    make integration-test - Run integration tests"
+	@echo "    make e2e-test         - Run E2E tests"
+	@echo "    make test-all         - Run all tests including E2E"
+	@echo "    make test-quick       - Quick unit tests (no race detector)"
+	@echo ""
+	@echo "  Release:"
+	@echo "    make package          - Create release archive"
+	@echo ""
+	@echo "  Development:"
+	@echo "    make lint             - Run linter"
+	@echo "    make fmt              - Format code"
+	@echo "    make clean            - Clean build artifacts"
+	@echo "    make demo             - Record a demo video"
+	@echo ""
+	@echo "  Variables:"
+	@echo "    VERSION=v1.0.0        - Set version for build/package"
+	@echo "    OUTPUT=myapp          - Set output binary name"
+	@echo ""
+	@echo "  Examples:"
+	@echo "    make deps && make test"
+	@echo "    make deps-static && make build-static VERSION=v1.0.0 && make package VERSION=v1.0.0"
