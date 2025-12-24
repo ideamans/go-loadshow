@@ -49,6 +49,14 @@ func (c *Capturer) captureWithOptions(ctx context.Context, html string, elementO
 	chromedpOpts = append(chromedpOpts,
 		chromedp.Flag("headless", "new"), // Use new headless mode
 		chromedp.Flag("hide-scrollbars", true),
+		// Sandbox flags for CI/container environments (matching chromebrowser)
+		chromedp.Flag("no-sandbox", true),
+		chromedp.Flag("disable-setuid-sandbox", true),
+		chromedp.Flag("disable-dev-shm-usage", true),
+		chromedp.Flag("disable-gpu", true),
+		chromedp.Flag("disable-namespace-sandbox", true),
+		chromedp.Flag("disable-seccomp-filter-sandbox", true),
+		chromedp.Flag("no-zygote", true),
 	)
 
 	allocCtx, allocCancel := chromedp.NewExecAllocator(ctx, chromedpOpts...)
@@ -89,11 +97,19 @@ func (c *Capturer) CaptureHTMLWithViewport(ctx context.Context, html string, wid
 	}
 	defer os.Remove(tmpFile)
 
-	// Create allocator
+	// Create allocator with sandbox-disabling flags for CI/container environments
 	chromedpOpts := chromedp.DefaultExecAllocatorOptions[:]
 	chromedpOpts = append(chromedpOpts,
 		chromedp.Flag("headless", "new"),
 		chromedp.Flag("hide-scrollbars", true),
+		// Sandbox flags for CI/container environments (matching chromebrowser)
+		chromedp.Flag("no-sandbox", true),
+		chromedp.Flag("disable-setuid-sandbox", true),
+		chromedp.Flag("disable-dev-shm-usage", true),
+		chromedp.Flag("disable-gpu", true),
+		chromedp.Flag("disable-namespace-sandbox", true),
+		chromedp.Flag("disable-seccomp-filter-sandbox", true),
+		chromedp.Flag("no-zygote", true),
 	)
 
 	allocCtx, allocCancel := chromedp.NewExecAllocator(ctx, chromedpOpts...)
