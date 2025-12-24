@@ -174,3 +174,127 @@ func (r *MP4Reader) Close() {
 		r.decoder.Close()
 	}
 }
+
+// RawFrame represents a raw AV1 frame without decoding.
+type RawFrame struct {
+	Data        []byte
+	TimestampMs int
+	Duration    int
+	IsKeyframe  bool
+}
+
+// ExtractFrames extracts raw AV1 frames from MP4 data without decoding.
+func ExtractFrames(mp4Data []byte) ([]RawFrame, error) {
+	reader := &bytesReadSeeker{data: mp4Data}
+
+	mp4File, err := mp4.DecodeFile(reader)
+	if err != nil {
+		return nil, fmt.Errorf("decode mp4: %w", err)
+	}
+
+	var frames []RawFrame
+
+	// Find video track
+	var videoTrackID uint32
+	var trex *mp4.TrexBox
+	var timescale uint32 = 1000
+
+	if mp4File.Init != nil && mp4File.Init.Moov != nil {
+		for _, trak := range mp4File.Init.Moov.Traks {
+			if trak.Mdia != nil && trak.Mdia.Hdlr != nil && trak.Mdia.Hdlr.HandlerType == "vide" {
+				videoTrackID = trak.Tkhd.TrackID
+				if trak.Mdia.Mdhd != nil {
+					timescale = trak.Mdia.Mdhd.Timescale
+				}
+				break
+			}
+		}
+		if mp4File.Init.Moov.Mvex != nil {
+			for _, t := range mp4File.Init.Moov.Mvex.Trexs {
+				if t.TrackID == videoTrackID {
+					trex = t
+					break
+				}
+			}
+		}
+	}
+
+	if videoTrackID == 0 {
+		return nil, fmt.Errorf("no video track found")
+	}
+
+	// Process fragments
+	for _, seg := range mp4File.Segments {
+		for _, frag := range seg.Fragments {
+			if frag.Moof == nil {
+				continue
+			}
+
+			for _, traf := range frag.Moof.Trafs {
+				if traf.Tfhd.TrackID != videoTrackID {
+					continue
+				}
+
+				var baseDecodeTime uint64
+				if traf.Tfdt != nil {
+					baseDecodeTime = traf.Tfdt.BaseMediaDecodeTime()
+				}
+
+				samples, err := frag.GetFullSamples(trex)
+				if err != nil {
+					return nil, fmt.Errorf("get samples: %w", err)
+				}
+
+				currentTime := baseDecodeTime
+				for _, sample := range samples {
+					timestampMs := int(currentTime * 1000 / uint64(timescale))
+					durationMs := int(uint64(sample.Dur) * 1000 / uint64(timescale))
+					isKeyframe := sample.Flags == mp4.SyncSampleFlags
+
+					frames = append(frames, RawFrame{
+						Data:        sample.Data,
+						TimestampMs: timestampMs,
+						Duration:    durationMs,
+						IsKeyframe:  isKeyframe,
+					})
+
+					currentTime += uint64(sample.Dur)
+				}
+			}
+		}
+	}
+
+	return frames, nil
+}
+
+// bytesReadSeeker implements io.ReadSeeker for a byte slice
+type bytesReadSeeker struct {
+	data   []byte
+	offset int64
+}
+
+func (b *bytesReadSeeker) Read(p []byte) (n int, err error) {
+	if b.offset >= int64(len(b.data)) {
+		return 0, io.EOF
+	}
+	n = copy(p, b.data[b.offset:])
+	b.offset += int64(n)
+	return n, nil
+}
+
+func (b *bytesReadSeeker) Seek(offset int64, whence int) (int64, error) {
+	var newOffset int64
+	switch whence {
+	case io.SeekStart:
+		newOffset = offset
+	case io.SeekCurrent:
+		newOffset = b.offset + offset
+	case io.SeekEnd:
+		newOffset = int64(len(b.data)) + offset
+	}
+	if newOffset < 0 {
+		return 0, fmt.Errorf("negative offset")
+	}
+	b.offset = newOffset
+	return newOffset, nil
+}

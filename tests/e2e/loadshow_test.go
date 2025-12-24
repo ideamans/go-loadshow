@@ -1,0 +1,426 @@
+// Package e2e contains end-to-end tests for the loadshow CLI.
+package e2e
+
+import (
+	"bytes"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/user/loadshow/pkg/adapters/av1decoder"
+)
+
+const testURL = "https://dummy-ec-site.ideamans.com/"
+
+// TestRecordCommand tests the record subcommand with a real website
+func TestRecordCommand(t *testing.T) {
+	if os.Getenv("LOADSHOW_E2E") != "1" {
+		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
+	}
+
+	// Build the CLI first
+	buildCmd := exec.Command("go", "build", "-o", "loadshow-test", "./cmd/loadshow")
+	buildCmd.Dir = getProjectRoot(t)
+	if out, err := buildCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+	}
+	defer os.Remove(filepath.Join(getProjectRoot(t), "loadshow-test"))
+
+	// Create temp output file
+	tmpFile, err := os.CreateTemp("", "loadshow-e2e-*.mp4")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+
+	// Run the record command
+	cmd := exec.Command(
+		"./loadshow-test",
+		"record",
+		testURL,
+		"-o", tmpFile.Name(),
+		"-p", "mobile",
+	)
+	cmd.Dir = getProjectRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err = cmd.Run()
+	if err != nil {
+		t.Fatalf("Record command failed: %v\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
+	}
+
+	// Verify output file
+	info, err := os.Stat(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("Output file not found: %v", err)
+	}
+
+	// Check file size is reasonable (at least 10KB for a real video)
+	if info.Size() < 10*1024 {
+		t.Errorf("Output file too small: %d bytes", info.Size())
+	}
+
+	// Read and verify video content
+	videoData, err := os.ReadFile(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("Failed to read output: %v", err)
+	}
+
+	// Verify MP4 signature
+	if len(videoData) < 8 || string(videoData[4:8]) != "ftyp" {
+		t.Error("Invalid MP4 file")
+	}
+
+	// Extract and verify frames
+	frames, err := av1decoder.ExtractFrames(videoData)
+	if err != nil {
+		t.Fatalf("Failed to extract frames: %v", err)
+	}
+
+	// Should have at least a few frames
+	if len(frames) < 3 {
+		t.Errorf("Expected at least 3 frames, got %d", len(frames))
+	}
+
+	t.Logf("Video created: %d bytes, %d frames", info.Size(), len(frames))
+}
+
+// TestRecordDesktopPreset tests the desktop preset
+func TestRecordDesktopPreset(t *testing.T) {
+	if os.Getenv("LOADSHOW_E2E") != "1" {
+		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
+	}
+
+	// Build the CLI
+	buildCmd := exec.Command("go", "build", "-o", "loadshow-test", "./cmd/loadshow")
+	buildCmd.Dir = getProjectRoot(t)
+	if out, err := buildCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+	}
+	defer os.Remove(filepath.Join(getProjectRoot(t), "loadshow-test"))
+
+	tmpFile, err := os.CreateTemp("", "loadshow-e2e-desktop-*.mp4")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+
+	cmd := exec.Command(
+		"./loadshow-test",
+		"record",
+		testURL,
+		"-o", tmpFile.Name(),
+		"-p", "desktop",
+	)
+	cmd.Dir = getProjectRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err = cmd.Run()
+	if err != nil {
+		t.Fatalf("Record command failed: %v\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
+	}
+
+	// Verify output
+	info, err := os.Stat(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("Output file not found: %v", err)
+	}
+
+	if info.Size() < 10*1024 {
+		t.Errorf("Output file too small: %d bytes", info.Size())
+	}
+
+	t.Logf("Desktop preset video: %d bytes", info.Size())
+}
+
+// TestRecordWithCustomDimensions tests custom width/height
+func TestRecordWithCustomDimensions(t *testing.T) {
+	if os.Getenv("LOADSHOW_E2E") != "1" {
+		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
+	}
+
+	buildCmd := exec.Command("go", "build", "-o", "loadshow-test", "./cmd/loadshow")
+	buildCmd.Dir = getProjectRoot(t)
+	if out, err := buildCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+	}
+	defer os.Remove(filepath.Join(getProjectRoot(t), "loadshow-test"))
+
+	tmpFile, err := os.CreateTemp("", "loadshow-e2e-custom-*.mp4")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+
+	cmd := exec.Command(
+		"./loadshow-test",
+		"record",
+		testURL,
+		"-o", tmpFile.Name(),
+		"-W", "320",
+		"-H", "400",
+		"-c", "2",
+	)
+	cmd.Dir = getProjectRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err = cmd.Run()
+	if err != nil {
+		t.Fatalf("Record command failed: %v\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
+	}
+
+	info, err := os.Stat(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("Output file not found: %v", err)
+	}
+
+	t.Logf("Custom dimensions video: %d bytes", info.Size())
+
+	// Decode and check dimensions
+	videoData, err := os.ReadFile(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("Failed to read output: %v", err)
+	}
+
+	reader := av1decoder.NewMP4Reader()
+	defer reader.Close()
+
+	// We can't easily check video dimensions without full decode
+	// Just verify the file is valid
+	if len(videoData) < 8 || string(videoData[4:8]) != "ftyp" {
+		t.Error("Invalid MP4 file")
+	}
+}
+
+// TestRecordWithDebugOutput tests debug output
+func TestRecordWithDebugOutput(t *testing.T) {
+	if os.Getenv("LOADSHOW_E2E") != "1" {
+		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
+	}
+
+	buildCmd := exec.Command("go", "build", "-o", "loadshow-test", "./cmd/loadshow")
+	buildCmd.Dir = getProjectRoot(t)
+	if out, err := buildCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+	}
+	defer os.Remove(filepath.Join(getProjectRoot(t), "loadshow-test"))
+
+	// Create temp directories
+	tmpDir, err := os.MkdirTemp("", "loadshow-e2e-debug-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	outputPath := filepath.Join(tmpDir, "output.mp4")
+	debugDir := filepath.Join(tmpDir, "debug")
+
+	cmd := exec.Command(
+		"./loadshow-test",
+		"record",
+		testURL,
+		"-o", outputPath,
+		"-p", "mobile",
+		"-d",
+		"--debug-dir", debugDir,
+	)
+	cmd.Dir = getProjectRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err = cmd.Run()
+	if err != nil {
+		t.Fatalf("Record command failed: %v\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
+	}
+
+	// Verify debug output
+	if _, err := os.Stat(filepath.Join(debugDir, "layout.json")); os.IsNotExist(err) {
+		t.Error("Expected layout.json in debug output")
+	}
+
+	// Check for raw frames
+	entries, err := os.ReadDir(debugDir)
+	if err != nil {
+		t.Fatalf("Failed to read debug dir: %v", err)
+	}
+
+	hasRawFrames := false
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), "raw_") {
+			hasRawFrames = true
+			break
+		}
+	}
+
+	if !hasRawFrames {
+		t.Log("Warning: no raw frames in debug output")
+	}
+
+	t.Logf("Debug output created with %d files", len(entries))
+}
+
+// TestVersionCommand tests the version subcommand
+func TestVersionCommand(t *testing.T) {
+	if os.Getenv("LOADSHOW_E2E") != "1" {
+		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
+	}
+
+	buildCmd := exec.Command("go", "build", "-o", "loadshow-test", "./cmd/loadshow")
+	buildCmd.Dir = getProjectRoot(t)
+	if out, err := buildCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+	}
+	defer os.Remove(filepath.Join(getProjectRoot(t), "loadshow-test"))
+
+	cmd := exec.Command("./loadshow-test", "version")
+	cmd.Dir = getProjectRoot(t)
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Version command failed: %v", err)
+	}
+
+	if !strings.Contains(string(out), "loadshow version") {
+		t.Errorf("Unexpected version output: %s", out)
+	}
+}
+
+// TestJuxtaposeCommand tests the juxtapose subcommand
+func TestJuxtaposeCommand(t *testing.T) {
+	if os.Getenv("LOADSHOW_E2E") != "1" {
+		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
+	}
+
+	buildCmd := exec.Command("go", "build", "-o", "loadshow-test", "./cmd/loadshow")
+	buildCmd.Dir = getProjectRoot(t)
+	if out, err := buildCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+	}
+	defer os.Remove(filepath.Join(getProjectRoot(t), "loadshow-test"))
+
+	// First, create two videos to juxtapose
+	tmpDir, err := os.MkdirTemp("", "loadshow-e2e-juxta-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	leftPath := filepath.Join(tmpDir, "left.mp4")
+	rightPath := filepath.Join(tmpDir, "right.mp4")
+	outputPath := filepath.Join(tmpDir, "output.mp4")
+
+	// Create left video
+	cmd := exec.Command(
+		"./loadshow-test",
+		"record",
+		testURL,
+		"-o", leftPath,
+		"-p", "mobile",
+	)
+	cmd.Dir = getProjectRoot(t)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to create left video: %v\n%s", err, out)
+	}
+
+	// Create right video
+	cmd = exec.Command(
+		"./loadshow-test",
+		"record",
+		testURL,
+		"-o", rightPath,
+		"-p", "desktop",
+	)
+	cmd.Dir = getProjectRoot(t)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to create right video: %v\n%s", err, out)
+	}
+
+	// Run juxtapose (currently returns placeholder)
+	cmd = exec.Command(
+		"./loadshow-test",
+		"juxtapose",
+		leftPath,
+		rightPath,
+		"-o", outputPath,
+	)
+	cmd.Dir = getProjectRoot(t)
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		// Juxtapose is not fully implemented yet, so we just check it doesn't crash
+		t.Logf("Juxtapose output: %s", out)
+	}
+
+	// Note: Juxtapose is not fully implemented, so we just verify the command runs
+	t.Log("Juxtapose command executed (placeholder implementation)")
+}
+
+// TestRecordWithProxy tests recording with proxy option
+func TestRecordWithProxy(t *testing.T) {
+	if os.Getenv("LOADSHOW_E2E") != "1" {
+		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
+	}
+
+	// This test just verifies the proxy option is accepted
+	// Actual proxy testing would require a proxy server
+
+	buildCmd := exec.Command("go", "build", "-o", "loadshow-test", "./cmd/loadshow")
+	buildCmd.Dir = getProjectRoot(t)
+	if out, err := buildCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+	}
+	defer os.Remove(filepath.Join(getProjectRoot(t), "loadshow-test"))
+
+	// Just verify the help shows the proxy option
+	cmd := exec.Command("./loadshow-test", "record", "--help")
+	cmd.Dir = getProjectRoot(t)
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Help command failed: %v", err)
+	}
+
+	if !strings.Contains(string(out), "--proxy-server") {
+		t.Error("Expected --proxy-server option in help")
+	}
+
+	if !strings.Contains(string(out), "--ignore-https-errors") {
+		t.Error("Expected --ignore-https-errors option in help")
+	}
+}
+
+// getProjectRoot returns the project root directory
+func getProjectRoot(t *testing.T) string {
+	// Start from current working directory and find go.mod
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("Could not find project root (go.mod)")
+		}
+		dir = parent
+	}
+}

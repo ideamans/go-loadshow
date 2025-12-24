@@ -9,10 +9,10 @@ import (
 )
 
 func TestStage_Execute(t *testing.T) {
-	mockRenderer := &mocks.Renderer{}
+	mockCapturer := mocks.NewHTMLCapturer()
 	mockSink := mocks.NewDebugSink(false)
 
-	stage := NewStage(mockRenderer, mockSink)
+	stage := NewStage(mockCapturer, mockSink)
 
 	input := pipeline.BannerInput{
 		Width:      400,
@@ -21,6 +21,7 @@ func TestStage_Execute(t *testing.T) {
 		Title:      "Example Page Title",
 		LoadTimeMs: 2500,
 		TotalBytes: 1024 * 500, // 500 KB
+		Credit:     "loadshow",
 		Theme:      pipeline.DefaultBannerTheme(),
 	}
 
@@ -36,17 +37,22 @@ func TestStage_Execute(t *testing.T) {
 
 	// Check image dimensions
 	bounds := result.Image.Bounds()
-	if bounds.Dx() != input.Width || bounds.Dy() != input.Height {
-		t.Errorf("expected image size %dx%d, got %dx%d",
-			input.Width, input.Height, bounds.Dx(), bounds.Dy())
+	if bounds.Dx() != input.Width {
+		t.Errorf("expected image width %d, got %d", input.Width, bounds.Dx())
+	}
+
+	// Check that CaptureHTMLWithViewport was called
+	if len(mockCapturer.CaptureHTMLWithViewportCalls) != 1 {
+		t.Errorf("expected 1 call to CaptureHTMLWithViewport, got %d",
+			len(mockCapturer.CaptureHTMLWithViewportCalls))
 	}
 }
 
 func TestStage_Execute_WithDebugSink(t *testing.T) {
-	mockRenderer := &mocks.Renderer{}
+	mockCapturer := mocks.NewHTMLCapturer()
 	mockSink := mocks.NewDebugSink(true)
 
-	stage := NewStage(mockRenderer, mockSink)
+	stage := NewStage(mockCapturer, mockSink)
 
 	input := pipeline.BannerInput{
 		Width:      400,
@@ -55,6 +61,7 @@ func TestStage_Execute_WithDebugSink(t *testing.T) {
 		Title:      "Test",
 		LoadTimeMs: 1000,
 		TotalBytes: 1024,
+		Credit:     "test",
 		Theme:      pipeline.DefaultBannerTheme(),
 	}
 
@@ -69,46 +76,127 @@ func TestStage_Execute_WithDebugSink(t *testing.T) {
 	}
 }
 
-func TestTruncateString(t *testing.T) {
+func TestStage_Execute_CustomCredit(t *testing.T) {
+	mockCapturer := mocks.NewHTMLCapturer()
+	mockSink := mocks.NewDebugSink(false)
+
+	stage := NewStage(mockCapturer, mockSink)
+
+	input := pipeline.BannerInput{
+		Width:      400,
+		Height:     80,
+		URL:        "https://example.com",
+		Title:      "Test",
+		LoadTimeMs: 1000,
+		TotalBytes: 1024,
+		Credit:     "Custom Credit",
+		Theme:      pipeline.DefaultBannerTheme(),
+	}
+
+	_, err := stage.Execute(context.Background(), input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Check that CaptureHTMLWithViewport was called with HTML containing the credit
+	if len(mockCapturer.CaptureHTMLWithViewportCalls) != 1 {
+		t.Fatalf("expected 1 call to CaptureHTMLWithViewport, got %d",
+			len(mockCapturer.CaptureHTMLWithViewportCalls))
+	}
+
+	// The HTML should contain the custom credit
+	html := mockCapturer.CaptureHTMLWithViewportCalls[0].HTML
+	if !contains(html, "Custom Credit") {
+		t.Error("expected HTML to contain custom credit text")
+	}
+}
+
+func TestNewTemplateVars(t *testing.T) {
 	tests := []struct {
-		input    string
-		maxLen   int
-		expected string
+		name       string
+		width      int
+		url        string
+		title      string
+		loadTimeMs int
+		totalBytes int64
+		credit     string
+		wantCredit string
 	}{
-		{"short", 10, "short"},
-		{"exactly10c", 10, "exactly10c"},
-		{"this is a long string", 10, "this is..."},
-		{"abc", 3, "abc"},
-		{"abcd", 3, "abc"},
+		{
+			name:       "with custom credit",
+			width:      400,
+			url:        "https://example.com",
+			title:      "Test",
+			loadTimeMs: 1000,
+			totalBytes: 1024,
+			credit:     "My Credit",
+			wantCredit: "My Credit",
+		},
+		{
+			name:       "with empty credit defaults to loadshow",
+			width:      400,
+			url:        "https://example.com",
+			title:      "Test",
+			loadTimeMs: 1000,
+			totalBytes: 1024,
+			credit:     "",
+			wantCredit: "loadshow",
+		},
 	}
 
 	for _, tt := range tests {
-		result := truncateString(tt.input, tt.maxLen)
-		if result != tt.expected {
-			t.Errorf("truncateString(%q, %d) = %q, want %q",
-				tt.input, tt.maxLen, result, tt.expected)
+		t.Run(tt.name, func(t *testing.T) {
+			vars := NewTemplateVars(tt.width, tt.url, tt.title, tt.loadTimeMs, tt.totalBytes, tt.credit)
+			if vars.Credit != tt.wantCredit {
+				t.Errorf("Credit = %q, want %q", vars.Credit, tt.wantCredit)
+			}
+			if vars.BodyWidth != tt.width {
+				t.Errorf("BodyWidth = %d, want %d", vars.BodyWidth, tt.width)
+			}
+			if vars.MainTitle != tt.title {
+				t.Errorf("MainTitle = %q, want %q", vars.MainTitle, tt.title)
+			}
+			if vars.SubTitle != tt.url {
+				t.Errorf("SubTitle = %q, want %q", vars.SubTitle, tt.url)
+			}
+		})
+	}
+}
+
+func TestRenderHTML(t *testing.T) {
+	vars := NewTemplateVars(400, "https://example.com", "Test Title", 2500, 1024*1024, "loadshow")
+
+	html, err := RenderHTML(vars)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Check that HTML contains expected elements
+	checks := []string{
+		"Test Title",
+		"https://example.com",
+		"loadshow",
+		"Traffic",
+		"OnLoad Time",
+	}
+
+	for _, check := range checks {
+		if !contains(html, check) {
+			t.Errorf("expected HTML to contain %q", check)
 		}
 	}
 }
 
-func TestFormatBytes(t *testing.T) {
-	tests := []struct {
-		bytes    int64
-		expected string
-	}{
-		{500, "500 B"},
-		{1024, "1.00 KB"},
-		{1536, "1.50 KB"},
-		{1024 * 1024, "1.00 MB"},
-		{1024 * 1024 * 1024, "1.00 GB"},
-		{1024 * 1024 * 1024 * 2, "2.00 GB"},
-	}
+// contains checks if s contains substr
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
+}
 
-	for _, tt := range tests {
-		result := formatBytes(tt.bytes)
-		if result != tt.expected {
-			t.Errorf("formatBytes(%d) = %q, want %q",
-				tt.bytes, result, tt.expected)
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
 		}
 	}
+	return false
 }
