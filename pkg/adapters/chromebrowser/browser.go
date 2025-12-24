@@ -104,12 +104,18 @@ func (b *Browser) Launch(ctx context.Context, opts ports.BrowserOptions) error {
 			chromedp.Flag("proxy-server", opts.ProxyServer))
 	}
 
-	// Additional flags for server/background execution
+	// Additional flags for server/background/container execution
 	chromedpOpts = append(chromedpOpts,
 		chromedp.Flag("disable-gpu", true),
 		chromedp.Flag("disable-software-rasterizer", true),
 		chromedp.Flag("single-process", false),
-		chromedp.Flag("disable-setuid-sandbox", true))
+		chromedp.Flag("disable-setuid-sandbox", true),
+		// Additional flags for CI/container environments
+		chromedp.Flag("disable-namespace-sandbox", true),
+		chromedp.Flag("disable-seccomp-filter-sandbox", true),
+		chromedp.Flag("no-zygote", true),
+		chromedp.Flag("disable-features", "VizDisplayCompositor"),
+	)
 
 	b.allocCtx, b.allocCancel = chromedp.NewExecAllocator(ctx, chromedpOpts...)
 	b.ctx, b.cancel = chromedp.NewContext(b.allocCtx)
@@ -225,13 +231,19 @@ func (b *Browser) StartScreencast(quality, maxWidth, maxHeight int) (<-chan port
 				},
 			}
 
-			select {
-			case b.screencastChan <- frame:
-			default:
-				// Channel full, skip frame
+			// Check if screencast is still active before sending
+			b.screencastMu.Lock()
+			active := b.screencastActive
+			if active {
+				select {
+				case b.screencastChan <- frame:
+				default:
+					// Channel full, skip frame
+				}
 			}
+			b.screencastMu.Unlock()
 
-			// Acknowledge frame
+			// Acknowledge frame (do this even if channel is closed)
 			go chromedp.Run(b.ctx, page.ScreencastFrameAck(e.SessionID))
 
 		case *network.EventLoadingFinished:
@@ -275,8 +287,10 @@ func (b *Browser) StopScreencast() error {
 
 	b.screencastActive = false
 
-	// Stop screencast
-	chromedp.Run(b.ctx, page.StopScreencast())
+	// Stop screencast with timeout to prevent hanging
+	stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	chromedp.Run(stopCtx, page.StopScreencast())
 
 	// Close channel
 	close(b.screencastChan)
@@ -311,9 +325,14 @@ func (b *Browser) GetPageInfo() (*ports.PageInfo, error) {
 func (b *Browser) Close() error {
 	b.StopScreencast()
 
+	// Cancel browser context first
 	if b.cancel != nil {
 		b.cancel()
 	}
+
+	// Give Chrome a moment to shut down gracefully, then force kill
+	time.Sleep(100 * time.Millisecond)
+
 	if b.allocCancel != nil {
 		b.allocCancel()
 	}
