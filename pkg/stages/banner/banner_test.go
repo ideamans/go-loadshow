@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/user/loadshow/pkg/adapters/logger"
 	"github.com/user/loadshow/pkg/mocks"
 	"github.com/user/loadshow/pkg/pipeline"
 )
@@ -12,7 +13,7 @@ func TestStage_Execute(t *testing.T) {
 	mockCapturer := mocks.NewHTMLCapturer()
 	mockSink := mocks.NewDebugSink(false)
 
-	stage := NewStage(mockCapturer, mockSink)
+	stage := NewStage(mockCapturer, mockSink, logger.NewNoop())
 
 	input := pipeline.BannerInput{
 		Width:      400,
@@ -52,7 +53,7 @@ func TestStage_Execute_WithDebugSink(t *testing.T) {
 	mockCapturer := mocks.NewHTMLCapturer()
 	mockSink := mocks.NewDebugSink(true)
 
-	stage := NewStage(mockCapturer, mockSink)
+	stage := NewStage(mockCapturer, mockSink, logger.NewNoop())
 
 	input := pipeline.BannerInput{
 		Width:      400,
@@ -80,7 +81,7 @@ func TestStage_Execute_CustomCredit(t *testing.T) {
 	mockCapturer := mocks.NewHTMLCapturer()
 	mockSink := mocks.NewDebugSink(false)
 
-	stage := NewStage(mockCapturer, mockSink)
+	stage := NewStage(mockCapturer, mockSink, logger.NewNoop())
 
 	input := pipeline.BannerInput{
 		Width:      400,

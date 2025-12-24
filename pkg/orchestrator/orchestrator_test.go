@@ -5,6 +5,7 @@ import (
 	"image"
 	"testing"
 
+	"github.com/user/loadshow/pkg/adapters/logger"
 	"github.com/user/loadshow/pkg/mocks"
 	"github.com/user/loadshow/pkg/pipeline"
 	"github.com/user/loadshow/pkg/ports"
@@ -141,6 +142,7 @@ func TestOrchestrator_Run(t *testing.T) {
 		encodeStage,
 		mockFS,
 		mockSink,
+		logger.NewNoop(),
 	)
 
 	config := DefaultConfig()
@@ -224,6 +226,7 @@ func TestOrchestrator_Run_WithBanner(t *testing.T) {
 		encodeStage,
 		mockFS,
 		mockSink,
+		logger.NewNoop(),
 	)
 
 	config := DefaultConfig()
@@ -280,6 +283,7 @@ func TestOrchestrator_Run_WithDebugSink(t *testing.T) {
 		encodeStage,
 		mockFS,
 		mockSink,
+		logger.NewNoop(),
 	)
 
 	config := DefaultConfig()

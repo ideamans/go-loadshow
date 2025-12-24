@@ -5,6 +5,7 @@ import (
 	"image"
 	"testing"
 
+	"github.com/user/loadshow/pkg/adapters/logger"
 	"github.com/user/loadshow/pkg/mocks"
 	"github.com/user/loadshow/pkg/pipeline"
 	"github.com/user/loadshow/pkg/ports"
@@ -20,7 +21,7 @@ func TestStage_Execute(t *testing.T) {
 	}
 	mockSink := mocks.NewDebugSink(false)
 
-	stage := NewStage(mockRenderer, mockSink, 2)
+	stage := NewStage(mockRenderer, mockSink, logger.NewNoop(), 2)
 
 	// Create layout
 	layoutInput := pipeline.DefaultLayoutInput()
@@ -68,7 +69,7 @@ func TestStage_Execute_EmptyFrames(t *testing.T) {
 	mockRenderer := &mocks.Renderer{}
 	mockSink := mocks.NewDebugSink(false)
 
-	stage := NewStage(mockRenderer, mockSink, 2)
+	stage := NewStage(mockRenderer, mockSink, logger.NewNoop(), 2)
 
 	input := pipeline.CompositeInput{
 		RawFrames: []pipeline.RawFrame{},
@@ -92,7 +93,7 @@ func TestStage_Execute_WithBanner(t *testing.T) {
 	}
 	mockSink := mocks.NewDebugSink(false)
 
-	stage := NewStage(mockRenderer, mockSink, 2)
+	stage := NewStage(mockRenderer, mockSink, logger.NewNoop(), 2)
 
 	// Create layout with banner
 	layoutInput := pipeline.DefaultLayoutInput()
@@ -131,7 +132,7 @@ func TestStage_Execute_WithDebugSink(t *testing.T) {
 	}
 	mockSink := mocks.NewDebugSink(true)
 
-	stage := NewStage(mockRenderer, mockSink, 2)
+	stage := NewStage(mockRenderer, mockSink, logger.NewNoop(), 2)
 
 	layoutInput := pipeline.DefaultLayoutInput()
 	layoutResult := layout.ComputeLayout(layoutInput)

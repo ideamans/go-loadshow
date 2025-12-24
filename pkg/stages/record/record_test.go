@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/user/loadshow/pkg/adapters/logger"
 	"github.com/user/loadshow/pkg/mocks"
 	"github.com/user/loadshow/pkg/pipeline"
 	"github.com/user/loadshow/pkg/ports"
@@ -45,7 +46,7 @@ func TestStage_Execute(t *testing.T) {
 
 	mockSink := mocks.NewDebugSink(false)
 
-	stage := New(mockBrowser, mockSink, ports.BrowserOptions{Headless: true})
+	stage := New(mockBrowser, mockSink, logger.NewNoop(), ports.BrowserOptions{Headless: true})
 
 	input := pipeline.DefaultRecordInput()
 	input.URL = "https://example.com"
@@ -98,7 +99,7 @@ func TestStage_Execute_WithDebugSink(t *testing.T) {
 	// Enable debug sink
 	mockSink := mocks.NewDebugSink(true)
 
-	stage := New(mockBrowser, mockSink, ports.BrowserOptions{Headless: true})
+	stage := New(mockBrowser, mockSink, logger.NewNoop(), ports.BrowserOptions{Headless: true})
 
 	input := pipeline.DefaultRecordInput()
 	input.URL = "https://example.com"
@@ -139,7 +140,7 @@ func TestStage_Execute_Timeout(t *testing.T) {
 	}
 
 	mockSink := mocks.NewDebugSink(false)
-	stage := New(mockBrowser, mockSink, ports.BrowserOptions{Headless: true})
+	stage := New(mockBrowser, mockSink, logger.NewNoop(), ports.BrowserOptions{Headless: true})
 
 	input := pipeline.DefaultRecordInput()
 	input.URL = "https://example.com"

@@ -16,6 +16,7 @@ import (
 	"github.com/user/loadshow/pkg/adapters/chromebrowser"
 	"github.com/user/loadshow/pkg/adapters/filesink"
 	"github.com/user/loadshow/pkg/adapters/ggrenderer"
+	"github.com/user/loadshow/pkg/adapters/logger"
 	"github.com/user/loadshow/pkg/adapters/nullsink"
 	"github.com/user/loadshow/pkg/adapters/osfilesystem"
 	"github.com/user/loadshow/pkg/orchestrator"
@@ -71,7 +72,7 @@ func TestLayoutToComposite(t *testing.T) {
 
 	// Create composite stage
 	renderer := ggrenderer.New()
-	compositeStage := composite.NewStage(renderer, nullsink.New(), 2)
+	compositeStage := composite.NewStage(renderer, nullsink.New(), logger.NewNoop(), 2)
 
 	compositeInput := pipeline.CompositeInput{
 		RawFrames:    rawFrames,
@@ -132,7 +133,7 @@ func TestCompositeToEncode(t *testing.T) {
 
 	// Create encode stage
 	encoder := av1encoder.New()
-	encodeStage := encode.NewStage(encoder)
+	encodeStage := encode.NewStage(encoder, logger.NewNoop())
 
 	encodeInput := pipeline.EncodeInput{
 		Frames:  composedFrames,
@@ -168,7 +169,7 @@ func TestBannerStageWithRealCapturer(t *testing.T) {
 	}
 
 	capturer := capturehtml.New()
-	bannerStage := banner.NewStage(capturer, nullsink.New())
+	bannerStage := banner.NewStage(capturer, nullsink.New(), logger.NewNoop())
 
 	input := pipeline.BannerInput{
 		Width:      400,
@@ -229,7 +230,7 @@ func TestFullPipelineWithMockBrowser(t *testing.T) {
 	rawFrames := createFakeRawFrames(5, layoutResult.Scroll.Width, layoutResult.Scroll.Height)
 
 	// Composite
-	compositeStage := composite.NewStage(renderer, nullsink.New(), 2)
+	compositeStage := composite.NewStage(renderer, nullsink.New(), logger.NewNoop(), 2)
 	compositeInput := pipeline.CompositeInput{
 		RawFrames:    rawFrames,
 		Layout:       layoutResult,
@@ -245,7 +246,7 @@ func TestFullPipelineWithMockBrowser(t *testing.T) {
 	}
 
 	// Encode
-	encodeStage := encode.NewStage(encoder)
+	encodeStage := encode.NewStage(encoder, logger.NewNoop())
 	encodeInput := pipeline.EncodeInput{
 		Frames:  compositeResult.Frames,
 		OutroMs: 200,
@@ -281,7 +282,7 @@ func TestRecordStageWithRealBrowser(t *testing.T) {
 	}
 
 	browser := chromebrowser.New()
-	recordStage := record.New(browser, nullsink.New(), ports.BrowserOptions{
+	recordStage := record.New(browser, nullsink.New(), logger.NewNoop(), ports.BrowserOptions{
 		Headless:  true,
 		Incognito: true,
 	})
@@ -338,10 +339,10 @@ func TestOrchestratorWithDebugSink(t *testing.T) {
 
 	// Create stages
 	layoutStage := layout.NewStage()
-	recordStage := record.New(browser, sink, ports.BrowserOptions{Headless: true, Incognito: true})
-	bannerStage := banner.NewStage(htmlCapturer, sink)
-	compositeStage := composite.NewStage(renderer, sink, 2)
-	encodeStage := encode.NewStage(encoder)
+	recordStage := record.New(browser, sink, logger.NewNoop(), ports.BrowserOptions{Headless: true, Incognito: true})
+	bannerStage := banner.NewStage(htmlCapturer, sink, logger.NewNoop())
+	compositeStage := composite.NewStage(renderer, sink, logger.NewNoop(), 2)
+	encodeStage := encode.NewStage(encoder, logger.NewNoop())
 
 	// Create orchestrator
 	orch := orchestrator.New(
@@ -352,6 +353,7 @@ func TestOrchestratorWithDebugSink(t *testing.T) {
 		encodeStage,
 		fs,
 		sink,
+		logger.NewNoop(),
 	)
 
 	// Create config

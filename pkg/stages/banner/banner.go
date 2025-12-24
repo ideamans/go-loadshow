@@ -13,19 +13,23 @@ import (
 type Stage struct {
 	capturer ports.HTMLCapturer
 	sink     ports.DebugSink
+	logger   ports.Logger
 }
 
 // NewStage creates a new banner stage.
-func NewStage(capturer ports.HTMLCapturer, sink ports.DebugSink) *Stage {
+func NewStage(capturer ports.HTMLCapturer, sink ports.DebugSink, logger ports.Logger) *Stage {
 	return &Stage{
 		capturer: capturer,
 		sink:     sink,
+		logger:   logger.WithComponent("banner"),
 	}
 }
 
 // Execute generates a banner image by rendering HTML template in a browser.
 func (s *Stage) Execute(ctx context.Context, input pipeline.BannerInput) (pipeline.BannerResult, error) {
 	result := pipeline.BannerResult{}
+
+	s.logger.Debug("Generating banner")
 
 	// Create template variables
 	vars := NewTemplateVars(
@@ -50,6 +54,7 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.BannerInput) (pipeli
 	}
 
 	result.Image = img
+	s.logger.Debug("Banner generated: %dx%d", img.Bounds().Dx(), img.Bounds().Dy())
 
 	// Save to debug sink if enabled
 	if s.sink.Enabled() {

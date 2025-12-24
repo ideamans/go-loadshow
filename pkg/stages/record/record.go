@@ -14,14 +14,16 @@ import (
 type Stage struct {
 	browser     ports.Browser
 	sink        ports.DebugSink
+	logger      ports.Logger
 	browserOpts ports.BrowserOptions
 }
 
 // New creates a new record stage.
-func New(browser ports.Browser, sink ports.DebugSink, opts ports.BrowserOptions) *Stage {
+func New(browser ports.Browser, sink ports.DebugSink, logger ports.Logger, opts ports.BrowserOptions) *Stage {
 	return &Stage{
 		browser:     browser,
 		sink:        sink,
+		logger:      logger.WithComponent("browser"),
 		browserOpts: opts,
 	}
 }
@@ -69,27 +71,41 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.RecordInput) (pipeli
 	opts.ProxyServer = input.ProxyServer
 
 	// Launch browser
+	if opts.Headless {
+		s.logger.Debug("Launching browser in headless mode")
+	} else {
+		s.logger.Debug("Launching browser in visible mode")
+	}
 	if err := s.browser.Launch(ctx, opts); err != nil {
 		return result, fmt.Errorf("launch browser: %w", err)
 	}
-	defer s.browser.Close()
+	defer func() {
+		s.browser.Close()
+		s.logger.Debug("Browser closed")
+	}()
 
 	// Note: SetViewport is intentionally not called
 	// This avoids right-margin rendering issues observed with viewport emulation
 
 	// Set network conditions
+	s.logger.Debug("Setting network conditions: %d ms latency, %d bps down, %d bps up",
+		input.NetworkConditions.LatencyMs,
+		input.NetworkConditions.DownloadSpeed,
+		input.NetworkConditions.UploadSpeed)
 	if err := s.browser.SetNetworkConditions(input.NetworkConditions); err != nil {
 		return result, fmt.Errorf("set network conditions: %w", err)
 	}
 
 	// Set CPU throttling
 	if input.CPUThrottling > 0 {
+		s.logger.Debug("Setting CPU throttling: %.1fx slowdown", input.CPUThrottling)
 		if err := s.browser.SetCPUThrottling(input.CPUThrottling); err != nil {
 			return result, fmt.Errorf("set CPU throttling: %w", err)
 		}
 	}
 
 	// Start screencast (window size controls capture dimensions, these params are ignored)
+	s.logger.Debug("Starting screencast")
 	frameChan, err := s.browser.StartScreencast(80, windowWidth, windowHeight)
 	if err != nil {
 		return result, fmt.Errorf("start screencast: %w", err)
@@ -101,6 +117,7 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.RecordInput) (pipeli
 	defer cancel()
 
 	// Start navigation
+	s.logger.Debug("Navigating to %s", input.URL)
 	navStart := time.Now()
 	if err := s.browser.Navigate(input.URL); err != nil {
 		return result, fmt.Errorf("navigate: %w", err)
@@ -139,6 +156,7 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.RecordInput) (pipeli
 done:
 	// Stop screencast
 	s.browser.StopScreencast()
+	s.logger.Debug("Captured %d frames", len(result.Frames))
 
 	// Get page info
 	pageInfo, err := s.browser.GetPageInfo()

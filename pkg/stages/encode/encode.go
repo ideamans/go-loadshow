@@ -12,12 +12,14 @@ import (
 // Stage encodes composed frames into a WebM video.
 type Stage struct {
 	encoder ports.VideoEncoder
+	logger  ports.Logger
 }
 
 // NewStage creates a new encode stage.
-func NewStage(encoder ports.VideoEncoder) *Stage {
+func NewStage(encoder ports.VideoEncoder, logger ports.Logger) *Stage {
 	return &Stage{
 		encoder: encoder,
+		logger:  logger.WithComponent("encoder"),
 	}
 }
 
@@ -34,6 +36,8 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.EncodeInput) (pipeli
 	bounds := firstFrame.Bounds()
 	width := bounds.Dx()
 	height := bounds.Dy()
+
+	s.logger.Debug("Encoding %d frames at %.1f fps", len(input.Frames), input.FPS)
 
 	// Initialize encoder
 	opts := ports.EncoderOptions{
@@ -82,6 +86,8 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.EncodeInput) (pipeli
 	result.VideoData = data
 	result.DurationMs = durationMs
 	result.FileSize = int64(len(data))
+
+	s.logger.Debug("Encoding completed")
 
 	return result, nil
 }

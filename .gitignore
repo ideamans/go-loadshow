@@ -26,3 +26,4 @@ coverage.out
 *.coverprofile
 
 /loadshow
+/loadshow-test

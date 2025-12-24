@@ -17,6 +17,7 @@ import (
 	"github.com/user/loadshow/pkg/adapters/chromebrowser"
 	"github.com/user/loadshow/pkg/adapters/filesink"
 	"github.com/user/loadshow/pkg/adapters/ggrenderer"
+	"github.com/user/loadshow/pkg/adapters/logger"
 	"github.com/user/loadshow/pkg/adapters/nullsink"
 	"github.com/user/loadshow/pkg/adapters/osfilesystem"
 	"github.com/user/loadshow/pkg/config"
@@ -87,6 +88,10 @@ type RecordCmd struct {
 	IgnoreHTTPSErrors bool   `help:"Ignore HTTPS certificate errors."`
 	ProxyServer       string `help:"HTTP proxy server (e.g., http://proxy:8080)."`
 	NoIncognito       bool   `help:"Disable incognito mode (incognito is enabled by default)."`
+
+	// Logging options
+	LogLevel string `short:"l" default:"info" enum:"debug,info,warn,error" help:"Log level (debug, info, warn, error)."`
+	Quiet    bool   `short:"Q" help:"Suppress all log output."`
 }
 
 // JuxtaposeCmd defines the juxtapose subcommand.
@@ -120,6 +125,14 @@ func (cmd *RecordCmd) Run() error {
 	// Build config from preset and overrides
 	cfg := cmd.buildConfig()
 
+	// Create logger
+	var log ports.Logger
+	if cmd.Quiet {
+		log = logger.NewNoop()
+	} else {
+		log = logger.NewConsole(ports.ParseLogLevel(cmd.LogLevel))
+	}
+
 	// Setup context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -129,7 +142,7 @@ func (cmd *RecordCmd) Run() error {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
-		fmt.Fprintln(os.Stderr, "\nInterrupted, shutting down...")
+		log.Warn("Interrupted, shutting down...")
 		cancel()
 	}()
 
@@ -158,16 +171,16 @@ func (cmd *RecordCmd) Run() error {
 
 	// Create stages
 	layoutStage := layout.NewStage()
-	recordStage := record.New(browser, sink, ports.BrowserOptions{
+	recordStage := record.New(browser, sink, log, ports.BrowserOptions{
 		Headless:          !cmd.NoHeadless,
 		ChromePath:        cmd.ChromePath,
 		Incognito:         !cmd.NoIncognito,
 		IgnoreHTTPSErrors: cmd.IgnoreHTTPSErrors,
 		ProxyServer:       cmd.ProxyServer,
 	})
-	bannerStage := banner.NewStage(htmlCapturer, sink)
-	compositeStage := composite.NewStage(renderer, sink, workers)
-	encodeStage := encode.NewStage(encoder)
+	bannerStage := banner.NewStage(htmlCapturer, sink, log)
+	compositeStage := composite.NewStage(renderer, sink, log, workers)
+	encodeStage := encode.NewStage(encoder, log)
 
 	// Create orchestrator
 	orch := orchestrator.New(
@@ -178,20 +191,21 @@ func (cmd *RecordCmd) Run() error {
 		encodeStage,
 		fs,
 		sink,
+		log,
 	)
 
 	// Build orchestrator config
 	orchConfig := cfg.ToOrchestratorConfig(cmd.URL, cmd.Output)
 
 	// Print start message
-	fmt.Printf("Recording %s (%s preset)...\n", cmd.URL, cmd.Preset)
+	log.Info("Recording %s (%s preset)...", cmd.URL, cmd.Preset)
 
 	// Run pipeline
 	if err := orch.Run(ctx, orchConfig); err != nil {
 		return err
 	}
 
-	fmt.Printf("Output saved to %s\n", cmd.Output)
+	log.Info("Output saved to %s", cmd.Output)
 	return nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"image"
 	"testing"
 
+	"github.com/user/loadshow/pkg/adapters/logger"
 	"github.com/user/loadshow/pkg/mocks"
 	"github.com/user/loadshow/pkg/pipeline"
 )
@@ -12,7 +13,7 @@ import (
 func TestStage_Execute(t *testing.T) {
 	mockEncoder := &mocks.VideoEncoder{}
 
-	stage := NewStage(mockEncoder)
+	stage := NewStage(mockEncoder, logger.NewNoop())
 
 	// Create test frames
 	frames := []pipeline.ComposedFrame{
@@ -64,7 +65,7 @@ func TestStage_Execute(t *testing.T) {
 func TestStage_Execute_NoOutro(t *testing.T) {
 	mockEncoder := &mocks.VideoEncoder{}
 
-	stage := NewStage(mockEncoder)
+	stage := NewStage(mockEncoder, logger.NewNoop())
 
 	frames := []pipeline.ComposedFrame{
 		{TimestampMs: 0, Image: image.NewRGBA(image.Rect(0, 0, 512, 640))},
@@ -93,7 +94,7 @@ func TestStage_Execute_NoOutro(t *testing.T) {
 func TestStage_Execute_EmptyFrames(t *testing.T) {
 	mockEncoder := &mocks.VideoEncoder{}
 
-	stage := NewStage(mockEncoder)
+	stage := NewStage(mockEncoder, logger.NewNoop())
 
 	input := pipeline.EncodeInput{
 		Frames: []pipeline.ComposedFrame{},
@@ -108,7 +109,7 @@ func TestStage_Execute_EmptyFrames(t *testing.T) {
 func TestStage_Execute_ContextCancelled(t *testing.T) {
 	mockEncoder := &mocks.VideoEncoder{}
 
-	stage := NewStage(mockEncoder)
+	stage := NewStage(mockEncoder, logger.NewNoop())
 
 	frames := []pipeline.ComposedFrame{
 		{TimestampMs: 0, Image: image.NewRGBA(image.Rect(0, 0, 512, 640))},
@@ -131,7 +132,7 @@ func TestStage_Execute_ContextCancelled(t *testing.T) {
 func TestStage_Execute_FrameTimestamps(t *testing.T) {
 	mockEncoder := &mocks.VideoEncoder{}
 
-	stage := NewStage(mockEncoder)
+	stage := NewStage(mockEncoder, logger.NewNoop())
 
 	frames := []pipeline.ComposedFrame{
 		{TimestampMs: 0, Image: image.NewRGBA(image.Rect(0, 0, 100, 100))},

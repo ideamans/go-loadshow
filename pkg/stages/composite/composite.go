@@ -17,17 +17,19 @@ import (
 type Stage struct {
 	renderer   ports.Renderer
 	sink       ports.DebugSink
+	logger     ports.Logger
 	numWorkers int
 }
 
 // NewStage creates a new composite stage.
-func NewStage(renderer ports.Renderer, sink ports.DebugSink, numWorkers int) *Stage {
+func NewStage(renderer ports.Renderer, sink ports.DebugSink, logger ports.Logger, numWorkers int) *Stage {
 	if numWorkers <= 0 {
 		numWorkers = runtime.NumCPU()
 	}
 	return &Stage{
 		renderer:   renderer,
 		sink:       sink,
+		logger:     logger.WithComponent("composite"),
 		numWorkers: numWorkers,
 	}
 }
@@ -38,8 +40,16 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.CompositeInput) (pip
 		return pipeline.CompositeResult{Frames: []pipeline.ComposedFrame{}}, nil
 	}
 
+	s.logger.Debug("Compositing %d frames with %d workers", len(input.RawFrames), s.numWorkers)
+
 	// Use parallel processing
-	return s.executeParallel(ctx, input)
+	result, err := s.executeParallel(ctx, input)
+	if err != nil {
+		return result, err
+	}
+
+	s.logger.Debug("Composition completed")
+	return result, nil
 }
 
 // indexedFrame holds a frame with its original index for sorting.
