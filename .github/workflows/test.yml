@@ -2,7 +2,7 @@ name: Test
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, e2e]
   pull_request:
     branches: [main, develop]
 
@@ -10,6 +10,8 @@ jobs:
   unit-test:
     name: Unit Tests (${{ matrix.os }}-${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
+    # Skip on e2e branch (e2e branch only runs E2E tests)
+    if: github.ref != 'refs/heads/e2e'
     strategy:
       fail-fast: false
       matrix:
@@ -72,6 +74,8 @@ jobs:
     name: Integration Tests (${{ matrix.os }})
     runs-on: ${{ matrix.runner }}
     needs: unit-test
+    # Skip on e2e branch (e2e branch only runs E2E tests)
+    if: github.ref != 'refs/heads/e2e'
     strategy:
       fail-fast: false
       matrix:
@@ -124,7 +128,8 @@ jobs:
   e2e-test:
     name: E2E Tests (${{ matrix.os }})
     runs-on: ${{ matrix.runner }}
-    needs: integration-test
+    # Run in parallel on main branch, or alone on e2e branch
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/e2e'
     strategy:
       fail-fast: false
       matrix:
