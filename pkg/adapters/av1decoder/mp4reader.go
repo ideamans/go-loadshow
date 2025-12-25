@@ -2,19 +2,12 @@ package av1decoder
 
 import (
 	"fmt"
-	"image"
 	"io"
 	"os"
 
 	"github.com/Eyevinn/mp4ff/mp4"
+	"github.com/user/loadshow/pkg/ports"
 )
-
-// VideoFrame represents a decoded video frame with timing.
-type VideoFrame struct {
-	Image       image.Image
-	TimestampMs int
-	Duration    int // Duration in milliseconds
-}
 
 // MP4Reader reads and decodes AV1 frames from an MP4 file.
 type MP4Reader struct {
@@ -29,7 +22,7 @@ func NewMP4Reader() *MP4Reader {
 }
 
 // ReadFrames reads all frames from an MP4 file.
-func (r *MP4Reader) ReadFrames(path string) ([]VideoFrame, error) {
+func (r *MP4Reader) ReadFrames(path string) ([]ports.VideoFrame, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open file: %w", err)
@@ -40,7 +33,7 @@ func (r *MP4Reader) ReadFrames(path string) ([]VideoFrame, error) {
 }
 
 // ReadFramesFromReader reads all frames from an io.ReadSeeker.
-func (r *MP4Reader) ReadFramesFromReader(reader io.ReadSeeker) ([]VideoFrame, error) {
+func (r *MP4Reader) ReadFramesFromReader(reader io.ReadSeeker) ([]ports.VideoFrame, error) {
 	// Parse MP4
 	mp4File, err := mp4.DecodeFile(reader)
 	if err != nil {
@@ -53,7 +46,7 @@ func (r *MP4Reader) ReadFramesFromReader(reader io.ReadSeeker) ([]VideoFrame, er
 	}
 	defer r.decoder.Close()
 
-	var frames []VideoFrame
+	var frames []ports.VideoFrame
 
 	// Handle fragmented MP4
 	if mp4File.IsFragmented() {
@@ -71,8 +64,8 @@ func (r *MP4Reader) ReadFramesFromReader(reader io.ReadSeeker) ([]VideoFrame, er
 	return frames, nil
 }
 
-func (r *MP4Reader) readFragmentedMP4(mp4File *mp4.File, reader io.ReadSeeker) ([]VideoFrame, error) {
-	var frames []VideoFrame
+func (r *MP4Reader) readFragmentedMP4(mp4File *mp4.File, reader io.ReadSeeker) ([]ports.VideoFrame, error) {
+	var frames []ports.VideoFrame
 
 	// Find video track and get trex
 	var videoTrackID uint32
@@ -147,7 +140,7 @@ func (r *MP4Reader) readFragmentedMP4(mp4File *mp4.File, reader io.ReadSeeker) (
 					timestampMs := int(currentTime * 1000 / uint64(timescale))
 					durationMs := int(uint64(sample.Dur) * 1000 / uint64(timescale))
 
-					frames = append(frames, VideoFrame{
+					frames = append(frames, ports.VideoFrame{
 						Image:       img,
 						TimestampMs: timestampMs,
 						Duration:    durationMs,
@@ -162,7 +155,7 @@ func (r *MP4Reader) readFragmentedMP4(mp4File *mp4.File, reader io.ReadSeeker) (
 	return frames, nil
 }
 
-func (r *MP4Reader) readProgressiveMP4(mp4File *mp4.File, reader io.ReadSeeker) ([]VideoFrame, error) {
+func (r *MP4Reader) readProgressiveMP4(mp4File *mp4.File, reader io.ReadSeeker) ([]ports.VideoFrame, error) {
 	// Progressive MP4 is not commonly used for our generated videos
 	// Return empty for now - our generated videos are fragmented
 	return nil, fmt.Errorf("progressive MP4 not supported, use fragmented MP4")
