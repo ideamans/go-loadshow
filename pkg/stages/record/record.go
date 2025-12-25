@@ -105,12 +105,12 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.RecordInput) (pipeli
 	}
 
 	// Start screencast (window size controls capture dimensions, these params are ignored)
-	// Default to 70 (medium quality) if not specified
+	// Default to 80 (medium quality) if not specified
 	screencastQuality := input.ScreencastQuality
 	if screencastQuality <= 0 {
-		screencastQuality = 70
+		screencastQuality = 80
 	}
-	s.logger.Debug("Starting screencast with quality %d", screencastQuality)
+	s.logger.Debug("Starting screencast with JPEG quality %d", screencastQuality)
 	frameChan, err := s.browser.StartScreencast(screencastQuality, windowWidth, windowHeight)
 	if err != nil {
 		return result, fmt.Errorf("start screencast: %w", err)

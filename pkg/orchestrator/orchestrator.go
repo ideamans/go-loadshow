@@ -54,10 +54,10 @@ type Config struct {
 	ShowProgress bool
 
 	// Encoding
-	Quality int
-	Bitrate int
-	OutroMs int
-	FPS     float64
+	VideoCRF int
+	Bitrate  int
+	OutroMs  int
+	FPS      float64
 }
 
 // DefaultConfig returns a Config with default values.
@@ -87,10 +87,10 @@ func DefaultConfig() Config {
 
 		ShowProgress: true,
 
-		Quality: 20,
-		Bitrate: 2000,
-		OutroMs: 2000,
-		FPS:     30.0,
+		VideoCRF: 25,
+		Bitrate:  2000,
+		OutroMs:  2000,
+		FPS:      30.0,
 	}
 }
 
@@ -190,7 +190,7 @@ func (o *Orchestrator) Run(ctx context.Context, config Config) error {
 	o.logger.Info(l10n.T("Composition completed"))
 
 	// 5. Encode video
-	o.logger.Info(l10n.F("Encoding video with quality %d", config.Quality))
+	o.logger.Info(l10n.F("Encoding video with CRF %d", config.VideoCRF))
 	encodeInput := o.buildEncodeInput(config, composite)
 	encoded, err := o.encodeStage.Execute(ctx, encodeInput)
 	if err != nil {
@@ -228,8 +228,8 @@ func (o *Orchestrator) buildLayoutInput(config Config) pipeline.LayoutInput {
 func (o *Orchestrator) buildRecordInput(config Config, layout pipeline.LayoutResult) pipeline.RecordInput {
 	return pipeline.RecordInput{
 		URL:               config.URL,
-		ViewportWidth:     config.ViewportWidth,      // Browser viewport width (e.g., 375 for mobile)
-		Screen:            layout.Scroll,             // Target screen dimensions from layout
+		ViewportWidth:     config.ViewportWidth, // Browser viewport width (e.g., 375 for mobile)
+		Screen:            layout.Scroll,        // Target screen dimensions from layout
 		ScreencastQuality: config.ScreencastQuality,
 		TimeoutMs:         config.TimeoutMs,
 		NetworkConditions: config.NetworkConditions,
@@ -281,11 +281,11 @@ func (o *Orchestrator) buildCompositeInput(
 
 func (o *Orchestrator) buildEncodeInput(config Config, composite pipeline.CompositeResult) pipeline.EncodeInput {
 	return pipeline.EncodeInput{
-		Frames:  composite.Frames,
-		OutroMs: config.OutroMs,
-		Quality: config.Quality,
-		Bitrate: config.Bitrate,
-		FPS:     config.FPS,
+		Frames:   composite.Frames,
+		OutroMs:  config.OutroMs,
+		VideoCRF: config.VideoCRF,
+		Bitrate:  config.Bitrate,
+		FPS:      config.FPS,
 	}
 }
 

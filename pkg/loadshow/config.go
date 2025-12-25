@@ -8,37 +8,37 @@ import (
 	"github.com/user/loadshow/pkg/ports"
 )
 
-// VideoQualityPreset represents a video quality preset name.
-type VideoQualityPreset string
+// QualityPreset represents a video quality preset name.
+type QualityPreset string
 
 const (
-	VideoQualityLow    VideoQualityPreset = "low"
-	VideoQualityMedium VideoQualityPreset = "medium"
-	VideoQualityHigh   VideoQualityPreset = "high"
+	QualityLow    QualityPreset = "low"
+	QualityMedium QualityPreset = "medium"
+	QualityHigh   QualityPreset = "high"
 )
 
-// VideoQualitySettings contains quality parameters for video encoding and capture.
-type VideoQualitySettings struct {
-	EncodeQuality     int // MP4 CRF value (0-63, lower is better)
+// QualitySettings contains quality parameters for video encoding and capture.
+type QualitySettings struct {
+	VideoCRF          int // MP4 CRF value (0-63, lower is better)
 	ScreencastQuality int // JPEG quality for screencast (0-100)
 }
 
-// GetVideoQualitySettings returns quality settings for the given preset.
-func GetVideoQualitySettings(preset VideoQualityPreset) VideoQualitySettings {
+// GetQualitySettings returns quality settings for the given preset.
+func GetQualitySettings(preset QualityPreset) QualitySettings {
 	switch preset {
-	case VideoQualityLow:
-		return VideoQualitySettings{
-			EncodeQuality:     35,
+	case QualityLow:
+		return QualitySettings{
+			VideoCRF:          35,
 			ScreencastQuality: 70,
 		}
-	case VideoQualityHigh:
-		return VideoQualitySettings{
-			EncodeQuality:     15,
+	case QualityHigh:
+		return QualitySettings{
+			VideoCRF:          15,
 			ScreencastQuality: 90,
 		}
 	default: // medium
-		return VideoQualitySettings{
-			EncodeQuality:     25,
+		return QualitySettings{
+			VideoCRF:          25,
 			ScreencastQuality: 80,
 		}
 	}
@@ -64,7 +64,7 @@ type Config struct {
 	BorderWidth     int         // Border width in pixels
 
 	// Encoding
-	Quality           int // MP4 quality (CRF 0-63, lower is better)
+	VideoCRF          int // MP4 CRF value (0-63, lower is better)
 	ScreencastQuality int // JPEG quality for screencast (0-100)
 	OutroMs           int // Duration to hold final frame in milliseconds
 
@@ -123,7 +123,7 @@ func desktopDefaults() Config {
 		BorderWidth:     1,
 
 		// Encoding (medium quality preset)
-		Quality:           25,
+		VideoCRF:          25,
 		ScreencastQuality: 80,
 		OutroMs:           2000,
 
@@ -160,16 +160,16 @@ func mobileDefaults() Config {
 		BorderWidth:     1,
 
 		// Encoding (medium quality preset)
-		Quality:           25,
+		VideoCRF:          25,
 		ScreencastQuality: 80,
 		OutroMs:           2000,
 
 		// Banner
 		Credit: "loadshow",
 
-		// Network (10 Mbps = 10 * 1024 * 1024 / 8 bytes/sec)
-		DownloadSpeed: 10 * 1024 * 1024 / 8, // 1,310,720 bytes/sec
-		UploadSpeed:   10 * 1024 * 1024 / 8,
+		// Network (10 Mbps)
+		DownloadSpeed: MbpsToBytes(10),
+		UploadSpeed:   MbpsToBytes(10),
 
 		// CPU (4x slower)
 		CPUThrottling: 4.0,
@@ -261,9 +261,9 @@ func (b *ConfigBuilder) WithBorderWidth(width int) *ConfigBuilder {
 	return b
 }
 
-// WithQuality sets the MP4 quality (CRF 0-63, lower is better).
-func (b *ConfigBuilder) WithQuality(quality int) *ConfigBuilder {
-	b.config.Quality = quality
+// WithVideoCRF sets the MP4 CRF value (0-63, lower is better).
+func (b *ConfigBuilder) WithVideoCRF(crf int) *ConfigBuilder {
+	b.config.VideoCRF = crf
 	return b
 }
 
@@ -273,10 +273,10 @@ func (b *ConfigBuilder) WithScreencastQuality(quality int) *ConfigBuilder {
 	return b
 }
 
-// WithVideoQualityPreset applies a video quality preset (low, medium, high).
-func (b *ConfigBuilder) WithVideoQualityPreset(preset VideoQualityPreset) *ConfigBuilder {
-	settings := GetVideoQualitySettings(preset)
-	b.config.Quality = settings.EncodeQuality
+// WithQualityPreset applies a quality preset (low, medium, high).
+func (b *ConfigBuilder) WithQualityPreset(preset QualityPreset) *ConfigBuilder {
+	settings := GetQualitySettings(preset)
+	b.config.VideoCRF = settings.VideoCRF
 	b.config.ScreencastQuality = settings.ScreencastQuality
 	return b
 }
@@ -334,10 +334,11 @@ func (b *ConfigBuilder) WithProxyServer(proxy string) *ConfigBuilder {
 	return b
 }
 
-// Mbps converts megabits per second to bytes per second.
-// Useful for setting network speeds: WithDownloadSpeed(Mbps(10))
-func Mbps(mbps int) int {
-	return mbps * 1024 * 1024 / 8
+// MbpsToBytes converts megabits per second to bytes per second.
+// Uses 1024 as the base (1 Mbps = 1024 * 1024 / 8 bytes/sec).
+// Accepts float64 for fractional Mbps values (e.g., 1.5 Mbps).
+func MbpsToBytes(mbps float64) int {
+	return int(mbps * 1024 * 1024 / 8)
 }
 
 // ToOrchestratorConfig converts Config to orchestrator.Config.
@@ -363,9 +364,9 @@ func (c Config) ToOrchestratorConfig(url, outputPath string) orchestrator.Config
 		BorderColor:     colorToArray(c.BorderColor),
 
 		// Recording
-		ViewportWidth:     c.ViewportWidth,
+		ViewportWidth: c.ViewportWidth,
 		ScreencastQuality: c.ScreencastQuality,
-		TimeoutMs:         30000,
+		TimeoutMs:     30000,
 		NetworkConditions: ports.NetworkConditions{
 			DownloadSpeed: c.DownloadSpeed,
 			UploadSpeed:   c.UploadSpeed,
@@ -385,10 +386,10 @@ func (c Config) ToOrchestratorConfig(url, outputPath string) orchestrator.Config
 		ShowProgress: true,
 
 		// Encoding
-		Quality: c.Quality,
-		Bitrate: 0,
-		OutroMs: c.OutroMs,
-		FPS:     30.0,
+		VideoCRF: c.VideoCRF,
+		Bitrate:  0,
+		OutroMs:  c.OutroMs,
+		FPS:      30.0,
 	}
 }
 

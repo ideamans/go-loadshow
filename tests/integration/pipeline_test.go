@@ -138,7 +138,7 @@ func TestCompositeToEncode(t *testing.T) {
 	encodeInput := pipeline.EncodeInput{
 		Frames:  composedFrames,
 		OutroMs: 500,
-		Quality: 40,
+		VideoCRF: 40,
 		Bitrate: 1000,
 		FPS:     30.0,
 	}
@@ -250,7 +250,7 @@ func TestFullPipelineWithMockBrowser(t *testing.T) {
 	encodeInput := pipeline.EncodeInput{
 		Frames:  compositeResult.Frames,
 		OutroMs: 200,
-		Quality: 45,
+		VideoCRF: 45,
 		FPS:     30.0,
 	}
 
@@ -371,7 +371,7 @@ func TestOrchestratorWithDebugSink(t *testing.T) {
 		BannerEnabled: true,
 		BannerHeight:  40,
 		ShowProgress:  true,
-		Quality:       45,
+		VideoCRF:       45,
 		OutroMs:       200,
 		FPS:           30.0,
 	}

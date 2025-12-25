@@ -42,7 +42,7 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.EncodeInput) (pipeli
 	// Initialize encoder
 	opts := ports.EncoderOptions{
 		Bitrate: input.Bitrate,
-		Quality: input.Quality,
+		Quality: input.VideoCRF,
 	}
 
 	if err := s.encoder.Begin(width, height, input.FPS, opts); err != nil {

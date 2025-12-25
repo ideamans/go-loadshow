@@ -35,41 +35,65 @@ var version = "dev"
 
 // Record command flags
 var recordFlags struct {
-	output          string
-	preset          string
-	videoQuality    string
-	width           int
-	height          int
-	viewportWidth   int
-	columns         int
-	margin          int
-	gap             int
-	indent          int
-	outdent         int
+	// Required
+	output string
+
+	// Preset
+	preset  string
+	quality string
+
+	// Video output
+	width    int
+	height   int
+	videoCRF int
+	outroMs  int
+
+	// Recording
+	screencastQuality int
+	viewportWidth     int
+
+	// Layout
+	columns int
+	margin  int
+	gap     int
+	indent  int
+	outdent int
+
+	// Style
 	backgroundColor string
 	borderColor     string
 	borderWidth     int
-	quality         int
-	outroMs         int
-	credit          string
-	downloadSpeed   int
-	uploadSpeed     int
-	cpuThrottling   float64
-	debug           bool
-	debugDir        string
-	noHeadless      bool
-	chromePath      string
-	ignoreHTTPS     bool
-	proxyServer     string
-	noIncognito     bool
-	logLevel        string
-	quiet           bool
+
+	// Network throttling
+	downloadMbps float64
+	uploadMbps   float64
+
+	// CPU throttling
+	cpuThrottling float64
+
+	// Banner
+	credit string
+
+	// Browser
+	noHeadless  bool
+	chromePath  string
+	ignoreHTTPS bool
+	proxyServer string
+	noIncognito bool
+
+	// Debug
+	debug    bool
+	debugDir string
+
+	// Logging
+	logLevel string
+	quiet    bool
 }
 
 // Juxtapose command flags
 var juxtaposeFlags struct {
-	output       string
-	videoQuality string
+	output  string
+	quality string
 }
 
 func main() {
@@ -115,43 +139,64 @@ func init() {
 	rootCmd.AddCommand(juxtaposeCmd)
 	rootCmd.AddCommand(versionCmd)
 
-	// Record command flags
+	// ===== Required =====
 	recordCmd.Flags().StringVarP(&recordFlags.output, "output", "o", "", l10n.T("Output MP4 file path (required)"))
-	recordCmd.Flags().StringVarP(&recordFlags.preset, "preset", "p", "desktop", l10n.T("Preset configuration (desktop, mobile)"))
-	recordCmd.Flags().StringVarP(&recordFlags.videoQuality, "video-quality", "Q", "medium", l10n.T("Video quality preset (low, medium, high)"))
+	recordCmd.MarkFlagRequired("output")
+
+	// ===== Preset =====
+	recordCmd.Flags().StringVarP(&recordFlags.preset, "preset", "p", "mobile", l10n.T("Device preset (desktop, mobile)"))
+	recordCmd.Flags().StringVarP(&recordFlags.quality, "quality", "q", "medium", l10n.T("Quality preset (low, medium, high)"))
+
+	// ===== Video Output =====
 	recordCmd.Flags().IntVarP(&recordFlags.width, "width", "W", 0, l10n.T("Output video width (default: 512)"))
 	recordCmd.Flags().IntVarP(&recordFlags.height, "height", "H", 0, l10n.T("Output video height (default: 640)"))
+	recordCmd.Flags().IntVar(&recordFlags.videoCRF, "video-crf", 0, l10n.T("Video CRF value (0-63, lower is better, overrides quality preset)"))
+	recordCmd.Flags().IntVar(&recordFlags.outroMs, "outro-ms", 0, l10n.T("Duration to hold final frame in milliseconds"))
+
+	// ===== Recording =====
+	recordCmd.Flags().IntVar(&recordFlags.screencastQuality, "screencast-quality", 0, l10n.T("Screencast JPEG quality (0-100, overrides quality preset)"))
 	recordCmd.Flags().IntVar(&recordFlags.viewportWidth, "viewport-width", 0, l10n.T("Browser viewport width (min: 500)"))
+
+	// ===== Layout =====
 	recordCmd.Flags().IntVarP(&recordFlags.columns, "columns", "c", 0, l10n.T("Number of columns (min: 1)"))
 	recordCmd.Flags().IntVar(&recordFlags.margin, "margin", 0, l10n.T("Margin around the canvas in pixels"))
 	recordCmd.Flags().IntVar(&recordFlags.gap, "gap", 0, l10n.T("Gap between columns in pixels"))
 	recordCmd.Flags().IntVar(&recordFlags.indent, "indent", 0, l10n.T("Additional top margin for columns 2+"))
 	recordCmd.Flags().IntVar(&recordFlags.outdent, "outdent", 0, l10n.T("Additional bottom margin for column 1"))
+
+	// ===== Style =====
 	recordCmd.Flags().StringVar(&recordFlags.backgroundColor, "background-color", "", l10n.T("Background color (hex, e.g., #dcdcdc)"))
 	recordCmd.Flags().StringVar(&recordFlags.borderColor, "border-color", "", l10n.T("Border color (hex, e.g., #b4b4b4)"))
 	recordCmd.Flags().IntVar(&recordFlags.borderWidth, "border-width", 0, l10n.T("Border width in pixels"))
-	recordCmd.Flags().IntVarP(&recordFlags.quality, "quality", "q", 0, l10n.T("Video quality (CRF 0-63, lower is better)"))
-	recordCmd.Flags().IntVar(&recordFlags.outroMs, "outro-ms", 0, l10n.T("Duration to hold final frame in milliseconds"))
-	recordCmd.Flags().StringVar(&recordFlags.credit, "credit", "", l10n.T("Custom text shown in banner (default: loadshow)"))
-	recordCmd.Flags().IntVar(&recordFlags.downloadSpeed, "download-speed", 0, l10n.T("Download speed in bytes/sec (0 = unlimited)"))
-	recordCmd.Flags().IntVar(&recordFlags.uploadSpeed, "upload-speed", 0, l10n.T("Upload speed in bytes/sec (0 = unlimited)"))
+
+	// ===== Network Throttling =====
+	recordCmd.Flags().Float64Var(&recordFlags.downloadMbps, "download-mbps", 0, l10n.T("Download speed in Mbps (0 = unlimited)"))
+	recordCmd.Flags().Float64Var(&recordFlags.uploadMbps, "upload-mbps", 0, l10n.T("Upload speed in Mbps (0 = unlimited)"))
+
+	// ===== CPU Throttling =====
 	recordCmd.Flags().Float64Var(&recordFlags.cpuThrottling, "cpu-throttling", 0, l10n.T("CPU slowdown factor (1.0 = no throttling, 4.0 = 4x slower)"))
-	recordCmd.Flags().BoolVarP(&recordFlags.debug, "debug", "d", false, l10n.T("Enable debug output"))
-	recordCmd.Flags().StringVar(&recordFlags.debugDir, "debug-dir", "./debug", l10n.T("Directory for debug output"))
+
+	// ===== Banner =====
+	recordCmd.Flags().StringVar(&recordFlags.credit, "credit", "", l10n.T("Custom text shown in banner (default: loadshow)"))
+
+	// ===== Browser =====
 	recordCmd.Flags().BoolVar(&recordFlags.noHeadless, "no-headless", false, l10n.T("Run browser in non-headless mode"))
 	recordCmd.Flags().StringVar(&recordFlags.chromePath, "chrome-path", "", l10n.T("Path to Chrome executable"))
 	recordCmd.Flags().BoolVar(&recordFlags.ignoreHTTPS, "ignore-https-errors", false, l10n.T("Ignore HTTPS certificate errors"))
 	recordCmd.Flags().StringVar(&recordFlags.proxyServer, "proxy-server", "", l10n.T("HTTP proxy server (e.g., http://proxy:8080)"))
 	recordCmd.Flags().BoolVar(&recordFlags.noIncognito, "no-incognito", false, l10n.T("Disable incognito mode"))
+
+	// ===== Debug =====
+	recordCmd.Flags().BoolVarP(&recordFlags.debug, "debug", "d", false, l10n.T("Enable debug output"))
+	recordCmd.Flags().StringVar(&recordFlags.debugDir, "debug-dir", "./debug", l10n.T("Directory for debug output"))
+
+	// ===== Logging =====
 	recordCmd.Flags().StringVarP(&recordFlags.logLevel, "log-level", "l", "info", l10n.T("Log level (debug, info, warn, error)"))
 	recordCmd.Flags().BoolVar(&recordFlags.quiet, "quiet", false, l10n.T("Suppress all log output"))
 
-	recordCmd.MarkFlagRequired("output")
-
-	// Juxtapose command flags
+	// ===== Juxtapose command flags =====
 	juxtaposeCmd.Flags().StringVarP(&juxtaposeFlags.output, "output", "o", "", l10n.T("Output MP4 file path (required)"))
-	juxtaposeCmd.Flags().StringVarP(&juxtaposeFlags.videoQuality, "video-quality", "Q", "medium", l10n.T("Video quality preset (low, medium, high)"))
-
+	juxtaposeCmd.Flags().StringVarP(&juxtaposeFlags.quality, "quality", "q", "medium", l10n.T("Quality preset (low, medium, high)"))
 	juxtaposeCmd.MarkFlagRequired("output")
 }
 
@@ -247,17 +292,17 @@ func runRecord(cmd *cobra.Command, args []string) error {
 
 // buildRecordConfig creates a Config from preset and CLI overrides.
 func buildRecordConfig() loadshow.Config {
-	// Start with preset
+	// Start with device preset
 	var builder *loadshow.ConfigBuilder
 	switch recordFlags.preset {
-	case "mobile":
-		builder = loadshow.NewMobileConfigBuilder()
-	default:
+	case "desktop":
 		builder = loadshow.NewConfigBuilder()
+	default: // mobile is default
+		builder = loadshow.NewMobileConfigBuilder()
 	}
 
-	// Apply video quality preset
-	builder.WithVideoQualityPreset(loadshow.VideoQualityPreset(recordFlags.videoQuality))
+	// Apply quality preset
+	builder.WithQualityPreset(loadshow.QualityPreset(recordFlags.quality))
 
 	// Apply video dimensions
 	if recordFlags.width > 0 {
@@ -267,10 +312,23 @@ func buildRecordConfig() loadshow.Config {
 		builder.WithHeight(recordFlags.height)
 	}
 
-	// Apply overrides
+	// Apply video output overrides
+	if recordFlags.videoCRF > 0 {
+		builder.WithVideoCRF(recordFlags.videoCRF)
+	}
+	if recordFlags.outroMs > 0 {
+		builder.WithOutroMs(recordFlags.outroMs)
+	}
+
+	// Apply recording overrides
+	if recordFlags.screencastQuality > 0 {
+		builder.WithScreencastQuality(recordFlags.screencastQuality)
+	}
 	if recordFlags.viewportWidth > 0 {
 		builder.WithViewportWidth(recordFlags.viewportWidth)
 	}
+
+	// Apply layout overrides
 	if recordFlags.columns > 0 {
 		builder.WithColumns(recordFlags.columns)
 	}
@@ -286,6 +344,8 @@ func buildRecordConfig() loadshow.Config {
 	if recordFlags.outdent > 0 {
 		builder.WithOutdent(recordFlags.outdent)
 	}
+
+	// Apply style overrides
 	if recordFlags.backgroundColor != "" {
 		builder.WithBackgroundColor(config.ParseColor(recordFlags.backgroundColor))
 	}
@@ -295,23 +355,23 @@ func buildRecordConfig() loadshow.Config {
 	if recordFlags.borderWidth > 0 {
 		builder.WithBorderWidth(recordFlags.borderWidth)
 	}
-	if recordFlags.quality > 0 {
-		builder.WithQuality(recordFlags.quality)
+
+	// Apply network throttling (convert Mbps to bytes/sec)
+	if recordFlags.downloadMbps > 0 {
+		builder.WithDownloadSpeed(loadshow.MbpsToBytes(recordFlags.downloadMbps))
 	}
-	if recordFlags.outroMs > 0 {
-		builder.WithOutroMs(recordFlags.outroMs)
+	if recordFlags.uploadMbps > 0 {
+		builder.WithUploadSpeed(loadshow.MbpsToBytes(recordFlags.uploadMbps))
 	}
-	if recordFlags.credit != "" {
-		builder.WithCredit(recordFlags.credit)
-	}
-	if recordFlags.downloadSpeed > 0 {
-		builder.WithDownloadSpeed(recordFlags.downloadSpeed)
-	}
-	if recordFlags.uploadSpeed > 0 {
-		builder.WithUploadSpeed(recordFlags.uploadSpeed)
-	}
+
+	// Apply CPU throttling
 	if recordFlags.cpuThrottling > 0 {
 		builder.WithCPUThrottling(recordFlags.cpuThrottling)
+	}
+
+	// Apply banner options
+	if recordFlags.credit != "" {
+		builder.WithCredit(recordFlags.credit)
 	}
 
 	// Apply browser options

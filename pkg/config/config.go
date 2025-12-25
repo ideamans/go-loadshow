@@ -48,10 +48,10 @@ type Config struct {
 	Theme        ThemeConfig `yaml:"theme"`
 
 	// Encoding
-	Quality int     `yaml:"quality"`
-	Bitrate int     `yaml:"bitrate"`
-	FPS     float64 `yaml:"fps"`
-	OutroMs int     `yaml:"outro_ms"`
+	VideoCRF int     `yaml:"video_crf"`
+	Bitrate  int     `yaml:"bitrate"`
+	FPS      float64 `yaml:"fps"`
+	OutroMs  int     `yaml:"outro_ms"`
 
 	// Debug
 	Debug    bool   `yaml:"debug"`
@@ -114,7 +114,7 @@ func Defaults() Config {
 		},
 
 		// Encoding
-		Quality: 30,
+		VideoCRF: 25,
 		FPS:     30.0,
 		OutroMs: 1000,
 
@@ -226,9 +226,9 @@ func (c Config) ToOrchestratorConfig() orchestrator.Config {
 		BannerHeight:  c.BannerHeight,
 		ShowProgress:  c.ShowProgress,
 
-		Quality: c.Quality,
-		Bitrate: c.Bitrate,
-		FPS:     c.FPS,
-		OutroMs: c.OutroMs,
+		VideoCRF: c.VideoCRF,
+		Bitrate:  c.Bitrate,
+		FPS:      c.FPS,
+		OutroMs:  c.OutroMs,
 	}
 }

@@ -96,7 +96,7 @@ type RecordInput struct {
 	URL               string
 	ViewportWidth     int       // Browser viewport width (e.g., 375 for mobile)
 	Screen            Dimension // Target screen dimensions from layout (scroll width/height)
-	ScreencastQuality int       // JPEG quality for screencast (0-100, default: 70)
+	ScreencastQuality int       // JPEG quality for screencast (0-100, default: 80)
 	TimeoutMs         int
 	NetworkConditions ports.NetworkConditions
 	CPUThrottling     float64
@@ -231,20 +231,20 @@ type ComposedFrame struct {
 
 // EncodeInput contains parameters for video encoding.
 type EncodeInput struct {
-	Frames  []ComposedFrame
-	OutroMs int     // Duration to hold the last frame
-	Quality int     // CRF: 0-63 (lower is higher quality)
-	Bitrate int     // Target bitrate in kbps
-	FPS     float64 // Frames per second
+	Frames   []ComposedFrame
+	OutroMs  int     // Duration to hold the last frame
+	VideoCRF int     // CRF: 0-63 (lower is higher quality)
+	Bitrate  int     // Target bitrate in kbps
+	FPS      float64 // Frames per second
 }
 
 // DefaultEncodeInput returns EncodeInput with default values.
 func DefaultEncodeInput() EncodeInput {
 	return EncodeInput{
-		OutroMs: 1000,
-		Quality: 30,
-		Bitrate: 1000,
-		FPS:     30.0,
+		OutroMs:  1000,
+		VideoCRF: 25,
+		Bitrate:  1000,
+		FPS:      30.0,
 	}
 }
 

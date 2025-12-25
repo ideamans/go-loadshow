@@ -25,7 +25,7 @@ func TestStage_Execute(t *testing.T) {
 	input := pipeline.EncodeInput{
 		Frames:  frames,
 		OutroMs: 1000,
-		Quality: 30,
+		VideoCRF: 30,
 		Bitrate: 1000,
 		FPS:     30.0,
 	}
@@ -75,7 +75,7 @@ func TestStage_Execute_NoOutro(t *testing.T) {
 	input := pipeline.EncodeInput{
 		Frames:  frames,
 		OutroMs: 0, // No outro
-		Quality: 30,
+		VideoCRF: 30,
 		Bitrate: 1000,
 		FPS:     30.0,
 	}
