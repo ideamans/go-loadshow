@@ -63,13 +63,13 @@ func TestRecordCommand(t *testing.T) {
 	tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
 
-	// Run the record command
+	// Run the record command (flags must come before URL argument in urfave/cli)
 	cmd := exec.Command(
 		getBinaryPath(),
 		"record",
-		testURL,
 		"-o", tmpFile.Name(),
 		"-p", "mobile",
+		testURL,
 	)
 	cmd.Dir = getProjectRoot(t)
 
@@ -133,9 +133,9 @@ func TestRecordDesktopPreset(t *testing.T) {
 	cmd := exec.Command(
 		getBinaryPath(),
 		"record",
-		testURL,
 		"-o", tmpFile.Name(),
 		"-p", "desktop",
+		testURL,
 	)
 	cmd.Dir = getProjectRoot(t)
 
@@ -186,11 +186,11 @@ func TestRecordWithCustomDimensions(t *testing.T) {
 	cmd := exec.Command(
 		getBinaryPath(),
 		"record",
-		testURL,
 		"-o", tmpFile.Name(),
 		"-W", "320",
 		"-H", "400",
 		"-c", "2",
+		testURL,
 	)
 	cmd.Dir = getProjectRoot(t)
 
@@ -249,11 +249,11 @@ func TestRecordWithDebugOutput(t *testing.T) {
 	cmd := exec.Command(
 		getBinaryPath(),
 		"record",
-		testURL,
 		"-o", outputPath,
 		"-p", "mobile",
 		"-d",
 		"--debug-dir", debugDir,
+		testURL,
 	)
 	cmd.Dir = getProjectRoot(t)
 
@@ -292,7 +292,7 @@ func TestRecordWithDebugOutput(t *testing.T) {
 	t.Logf("Debug output created with %d files", len(entries))
 }
 
-// TestVersionCommand tests the version subcommand
+// TestVersionCommand tests the version flag
 func TestVersionCommand(t *testing.T) {
 	if os.Getenv("LOADSHOW_E2E") != "1" {
 		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
@@ -307,16 +307,16 @@ func TestVersionCommand(t *testing.T) {
 		defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 	}
 
-	cmd := exec.Command(getBinaryPath(), "version")
+	// urfave/cli uses --version flag instead of version subcommand
+	cmd := exec.Command(getBinaryPath(), "--version")
 	cmd.Dir = getProjectRoot(t)
-	cmd.Env = append(os.Environ(), "L10N_TEST_MODE=1") // Force English output
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Version command failed: %v", err)
 	}
 
-	if !strings.Contains(string(out), "loadshow (Go) version") {
+	if !strings.Contains(string(out), "loadshow version") {
 		t.Errorf("Unexpected version output: %s", out)
 	}
 }
@@ -351,9 +351,9 @@ func TestJuxtaposeCommand(t *testing.T) {
 	cmd := exec.Command(
 		getBinaryPath(),
 		"record",
-		testURL,
 		"-o", leftPath,
 		"-p", "mobile",
+		testURL,
 	)
 	cmd.Dir = getProjectRoot(t)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -364,33 +364,42 @@ func TestJuxtaposeCommand(t *testing.T) {
 	cmd = exec.Command(
 		getBinaryPath(),
 		"record",
-		testURL,
 		"-o", rightPath,
 		"-p", "desktop",
+		testURL,
 	)
 	cmd.Dir = getProjectRoot(t)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to create right video: %v\n%s", err, out)
 	}
 
-	// Run juxtapose (currently returns placeholder)
+	// Run juxtapose
 	cmd = exec.Command(
 		getBinaryPath(),
 		"juxtapose",
+		"-o", outputPath,
 		leftPath,
 		rightPath,
-		"-o", outputPath,
 	)
 	cmd.Dir = getProjectRoot(t)
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		// Juxtapose is not fully implemented yet, so we just check it doesn't crash
-		t.Logf("Juxtapose output: %s", out)
+		t.Fatalf("Juxtapose command failed: %v\n%s", err, out)
 	}
 
-	// Note: Juxtapose is not fully implemented, so we just verify the command runs
-	t.Log("Juxtapose command executed (placeholder implementation)")
+	// Verify output file was created
+	info, err := os.Stat(outputPath)
+	if err != nil {
+		t.Fatalf("Output file not found: %v", err)
+	}
+
+	// Check file size is reasonable (at least 10KB for a real video)
+	if info.Size() < 10*1024 {
+		t.Errorf("Output file too small: %d bytes", info.Size())
+	}
+
+	t.Logf("Juxtapose video created: %d bytes", info.Size())
 }
 
 // TestRecordWithProxy tests recording with proxy option
