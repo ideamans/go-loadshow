@@ -307,13 +307,14 @@ func TestVersionCommand(t *testing.T) {
 
 	cmd := exec.Command(getBinaryPath(), "version")
 	cmd.Dir = getProjectRoot(t)
+	cmd.Env = append(os.Environ(), "L10N_TEST_MODE=1") // Force English output
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Version command failed: %v", err)
 	}
 
-	if !strings.Contains(string(out), "loadshow version") {
+	if !strings.Contains(string(out), "loadshow (Go) version") {
 		t.Errorf("Unexpected version output: %s", out)
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/alecthomas/kong"
+	"github.com/ideamans/go-l10n"
 
 	"github.com/user/loadshow/pkg/adapters/av1encoder"
 	"github.com/user/loadshow/pkg/adapters/capturehtml"
@@ -142,7 +143,7 @@ func (cmd *RecordCmd) Run() error {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
-		log.Warn("Interrupted, shutting down...")
+		log.Warn(l10n.T("Interrupted, shutting down..."))
 		cancel()
 	}()
 
@@ -198,14 +199,14 @@ func (cmd *RecordCmd) Run() error {
 	orchConfig := cfg.ToOrchestratorConfig(cmd.URL, cmd.Output)
 
 	// Print start message
-	log.Info("Recording %s (%s preset)...", cmd.URL, cmd.Preset)
+	log.Info(l10n.F("Recording %s (%s preset)...", cmd.URL, cmd.Preset))
 
 	// Run pipeline
 	if err := orch.Run(ctx, orchConfig); err != nil {
 		return err
 	}
 
-	log.Info("Output saved to %s", cmd.Output)
+	log.Info(l10n.F("Output saved to %s", cmd.Output))
 	return nil
 }
 
@@ -288,14 +289,14 @@ func (cmd *RecordCmd) buildConfig() loadshow.Config {
 
 // Run executes the juxtapose command.
 func (cmd *JuxtaposeCmd) Run() error {
-	fmt.Println("Juxtapose command not yet implemented.")
-	fmt.Printf("Would create comparison from %s and %s to %s\n", cmd.Left, cmd.Right, cmd.Output)
+	fmt.Println(l10n.T("Juxtapose command not yet implemented."))
+	fmt.Println(l10n.F("Would create comparison from %s and %s to %s", cmd.Left, cmd.Right, cmd.Output))
 	return nil
 }
 
 // Run executes the version command.
 func (cmd *VersionCmd) Run() error {
-	fmt.Printf("loadshow version %s\n", version)
+	fmt.Println(l10n.F("loadshow (Go) version %s", version))
 	return nil
 }
 

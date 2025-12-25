@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"image/color"
 
+	"github.com/ideamans/go-l10n"
 	"github.com/user/loadshow/pkg/pipeline"
 	"github.com/user/loadshow/pkg/ports"
 )
@@ -129,17 +130,17 @@ func New(
 
 // Run executes the complete pipeline.
 func (o *Orchestrator) Run(ctx context.Context, config Config) error {
-	o.logger.Info("Starting pipeline")
+	o.logger.Info(l10n.T("Starting pipeline"))
 
 	// 1. Layout calculation
-	o.logger.Info("Calculating layout")
+	o.logger.Info(l10n.T("Calculating layout"))
 	layoutInput := o.buildLayoutInput(config)
 	layout, err := o.layoutStage.Execute(ctx, layoutInput)
 	if err != nil {
-		o.logger.Error("Failed to calculate layout: %s", err)
+		o.logger.Error(l10n.F("Failed to calculate layout: %s", err))
 		return fmt.Errorf("layout stage: %w", err)
 	}
-	o.logger.Info("Layout calculated: %dx%d canvas, %d columns", config.CanvasWidth, config.CanvasHeight, config.Columns)
+	o.logger.Info(l10n.F("Layout calculated: %dx%d canvas, %d columns", config.CanvasWidth, config.CanvasHeight, config.Columns))
 
 	// Save layout debug output
 	if o.sink.Enabled() {
@@ -152,10 +153,10 @@ func (o *Orchestrator) Run(ctx context.Context, config Config) error {
 	recordInput := o.buildRecordInput(config, layout)
 	record, err := o.recordStage.Execute(ctx, recordInput)
 	if err != nil {
-		o.logger.Error("Failed to record page: %s", err)
+		o.logger.Error(l10n.F("Failed to record page: %s", err))
 		return fmt.Errorf("record stage: %w", err)
 	}
-	o.logger.Info("Recording completed in %d ms", record.Timing.TotalDurationMs)
+	o.logger.Info(l10n.F("Recording completed in %d ms", record.Timing.TotalDurationMs))
 
 	// Save recording debug output
 	if o.sink.Enabled() {
@@ -167,43 +168,43 @@ func (o *Orchestrator) Run(ctx context.Context, config Config) error {
 	// 3. Generate banner (optional)
 	var banner *pipeline.BannerResult
 	if config.BannerEnabled {
-		o.logger.Info("Generating banner")
+		o.logger.Info(l10n.T("Generating banner"))
 		bannerInput := o.buildBannerInput(config, record)
 		b, err := o.bannerStage.Execute(ctx, bannerInput)
 		if err != nil {
-			o.logger.Error("Failed to generate banner: %s", err)
+			o.logger.Error(l10n.F("Failed to generate banner: %s", err))
 			return fmt.Errorf("banner stage: %w", err)
 		}
 		banner = &b
 	}
 
 	// 4. Compose frames
-	o.logger.Info("Compositing %d frames", len(record.Frames))
+	o.logger.Info(l10n.F("Compositing %d frames", len(record.Frames)))
 	compositeInput := o.buildCompositeInput(config, layout, record, banner)
 	composite, err := o.compositeStage.Execute(ctx, compositeInput)
 	if err != nil {
-		o.logger.Error("Failed to composite frames: %s", err)
+		o.logger.Error(l10n.F("Failed to composite frames: %s", err))
 		return fmt.Errorf("composite stage: %w", err)
 	}
-	o.logger.Info("Composition completed")
+	o.logger.Info(l10n.T("Composition completed"))
 
 	// 5. Encode video
-	o.logger.Info("Encoding video with quality %d", config.Quality)
+	o.logger.Info(l10n.F("Encoding video with quality %d", config.Quality))
 	encodeInput := o.buildEncodeInput(config, composite)
 	encoded, err := o.encodeStage.Execute(ctx, encodeInput)
 	if err != nil {
-		o.logger.Error("Failed to encode video: %s", err)
+		o.logger.Error(l10n.F("Failed to encode video: %s", err))
 		return fmt.Errorf("encode stage: %w", err)
 	}
-	o.logger.Info("Video encoded: %d bytes", len(encoded.VideoData))
+	o.logger.Info(l10n.F("Video encoded: %d bytes", len(encoded.VideoData)))
 
 	// 6. Write output file
 	if err := o.fs.WriteFile(config.OutputPath, encoded.VideoData); err != nil {
-		o.logger.Error("Failed to write output: %s", err)
+		o.logger.Error(l10n.F("Failed to write output: %s", err))
 		return fmt.Errorf("write output: %w", err)
 	}
 
-	o.logger.Info("Pipeline completed successfully")
+	o.logger.Info(l10n.T("Pipeline completed successfully"))
 
 	return nil
 }
