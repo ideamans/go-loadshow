@@ -54,8 +54,10 @@ func RenderHTML(vars TemplateVars) (string, error) {
 }
 
 // defaultHTMLTemplate is the banner HTML template.
-const defaultHTMLTemplate = `<html>
+const defaultHTMLTemplate = `<!DOCTYPE html>
+<html>
   <head>
+    <meta charset="UTF-8">
     <style>
       * {
         margin: 0;

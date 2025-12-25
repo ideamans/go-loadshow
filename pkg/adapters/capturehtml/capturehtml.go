@@ -37,7 +37,8 @@ func (c *Capturer) CaptureElement(ctx context.Context, html string) (image.Image
 
 func (c *Capturer) captureWithOptions(ctx context.Context, html string, elementOnly bool) (image.Image, error) {
 	// Use data URL to avoid file system access issues (e.g., snap Chromium restrictions)
-	dataURL := "data:text/html;base64," + base64.StdEncoding.EncodeToString([]byte(html))
+	// Include charset=utf-8 to ensure proper encoding of non-ASCII characters
+	dataURL := "data:text/html;charset=utf-8;base64," + base64.StdEncoding.EncodeToString([]byte(html))
 
 	// Create allocator with headless options (matching chromebrowser)
 	chromedpOpts := chromedp.DefaultExecAllocatorOptions[:]
@@ -84,7 +85,8 @@ func (c *Capturer) captureWithOptions(ctx context.Context, html string, elementO
 // CaptureHTMLWithViewport renders HTML at a specific viewport size.
 func (c *Capturer) CaptureHTMLWithViewport(ctx context.Context, html string, width, height int) (image.Image, error) {
 	// Use data URL to avoid file system access issues (e.g., snap Chromium restrictions)
-	dataURL := "data:text/html;base64," + base64.StdEncoding.EncodeToString([]byte(html))
+	// Include charset=utf-8 to ensure proper encoding of non-ASCII characters
+	dataURL := "data:text/html;charset=utf-8;base64," + base64.StdEncoding.EncodeToString([]byte(html))
 
 	// Create allocator with sandbox-disabling flags for CI/container environments
 	chromedpOpts := chromedp.DefaultExecAllocatorOptions[:]
