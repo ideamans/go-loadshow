@@ -32,6 +32,7 @@ echo "Static build: $STATIC"
 build_libaom_static() {
     local install_prefix=$1
     local cc=${2:-gcc}
+    local extra_cmake_args=${3:-}
 
     echo "Building libaom ${LIBAOM_VERSION} from source..."
 
@@ -45,14 +46,20 @@ build_libaom_static() {
     fi
 
     cd aom
-    rm -rf build && mkdir build && cd build
+    # Use _build directory to avoid conflicting with source's build/cmake directory
+    rm -rf _build && mkdir _build && cd _build
 
     CC=$cc cmake .. -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DENABLE_SHARED=OFF \
         -DCONFIG_AV1_ENCODER=1 \
         -DCONFIG_AV1_DECODER=1 \
-        -DCMAKE_INSTALL_PREFIX="${install_prefix}"
+        -DENABLE_EXAMPLES=OFF \
+        -DENABLE_TESTS=OFF \
+        -DENABLE_TOOLS=OFF \
+        -DENABLE_DOCS=OFF \
+        -DCMAKE_INSTALL_PREFIX="${install_prefix}" \
+        $extra_cmake_args
 
     ninja
 
@@ -72,7 +79,7 @@ setup_linux() {
     sudo apt-get update
 
     if [ "$STATIC" = true ]; then
-        sudo apt-get install -y cmake ninja-build pkg-config musl-tools git
+        sudo apt-get install -y cmake ninja-build pkg-config musl-tools git nasm
         build_libaom_static "/usr/local/musl" "musl-gcc"
     else
         sudo apt-get install -y libaom-dev pkg-config
@@ -85,6 +92,7 @@ setup_darwin() {
     brew install cmake ninja pkg-config
 
     if [ "$STATIC" = true ]; then
+        brew install nasm
         build_libaom_static "/usr/local"
     else
         brew install aom
@@ -102,7 +110,8 @@ setup_windows() {
             mingw-w64-ucrt-x86_64-gcc \
             mingw-w64-ucrt-x86_64-pkg-config \
             mingw-w64-ucrt-x86_64-curl
-        build_libaom_static "/ucrt64"
+        # Use generic CPU to avoid nasm version issues on Windows
+        build_libaom_static "/ucrt64" "gcc" "-DAOM_TARGET_CPU=generic"
     else
         pacman -S --noconfirm --needed \
             mingw-w64-ucrt-x86_64-gcc \
