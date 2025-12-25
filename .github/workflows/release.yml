@@ -82,10 +82,78 @@ jobs:
           name: loadshow_${{ steps.version.outputs.VERSION }}_${{ matrix.os }}_${{ matrix.arch }}
           path: loadshow_${{ steps.version.outputs.VERSION }}_*
 
+      - name: Upload binary for E2E test
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary_${{ matrix.os }}_${{ matrix.arch }}
+          path: loadshow${{ runner.os == 'Windows' && '.exe' || '' }}
+
+  e2e-test:
+    name: E2E Test (${{ matrix.os }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-latest
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - os: darwin
+            arch: arm64
+            runner: macos-14
+          # Windows E2E is skipped due to Chrome/headless complexity
+          # - os: windows
+          #   arch: amd64
+          #   runner: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          name: binary_${{ matrix.os }}_${{ matrix.arch }}
+          path: .
+
+      - name: Make binary executable (Unix)
+        if: runner.os != 'Windows'
+        run: chmod +x ./loadshow
+
+      - name: Install Chrome (Linux amd64)
+        if: runner.os == 'Linux' && matrix.arch == 'amd64'
+        run: |
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: Install Chromium (Linux arm64)
+        if: runner.os == 'Linux' && matrix.arch == 'arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium
+
+      - name: Run E2E tests
+        env:
+          LOADSHOW_E2E: "1"
+          LOADSHOW_BINARY: ${{ github.workspace }}/loadshow
+        run: |
+          go test -v -timeout 15m ./tests/e2e/...
+
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, e2e-test]
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Checkout code

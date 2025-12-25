@@ -24,11 +24,20 @@ func getBinaryName() string {
 }
 
 // getBinaryPath returns the path to execute the test binary
+// If LOADSHOW_BINARY env var is set, use that instead (for CI with pre-built binaries)
 func getBinaryPath() string {
+	if path := os.Getenv("LOADSHOW_BINARY"); path != "" {
+		return path
+	}
 	if runtime.GOOS == "windows" {
 		return ".\\loadshow-test.exe"
 	}
 	return "./loadshow-test"
+}
+
+// shouldBuildBinary returns true if we need to build the binary (no pre-built binary provided)
+func shouldBuildBinary() bool {
+	return os.Getenv("LOADSHOW_BINARY") == ""
 }
 
 // TestRecordCommand tests the record subcommand with a real website
@@ -37,13 +46,15 @@ func TestRecordCommand(t *testing.T) {
 		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
 	}
 
-	// Build the CLI first
-	buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
-	buildCmd.Dir = getProjectRoot(t)
-	if out, err := buildCmd.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+	// Build the CLI if no pre-built binary is provided
+	if shouldBuildBinary() {
+		buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
+		buildCmd.Dir = getProjectRoot(t)
+		if out, err := buildCmd.CombinedOutput(); err != nil {
+			t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+		}
+		defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 	}
-	defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 
 	// Create temp output file
 	tmpFile, err := os.CreateTemp("", "loadshow-e2e-*.mp4")
@@ -114,13 +125,15 @@ func TestRecordDesktopPreset(t *testing.T) {
 		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
 	}
 
-	// Build the CLI
-	buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
-	buildCmd.Dir = getProjectRoot(t)
-	if out, err := buildCmd.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+	// Build the CLI if no pre-built binary is provided
+	if shouldBuildBinary() {
+		buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
+		buildCmd.Dir = getProjectRoot(t)
+		if out, err := buildCmd.CombinedOutput(); err != nil {
+			t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+		}
+		defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 	}
-	defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 
 	tmpFile, err := os.CreateTemp("", "loadshow-e2e-desktop-*.mp4")
 	if err != nil {
@@ -166,12 +179,14 @@ func TestRecordWithCustomDimensions(t *testing.T) {
 		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
 	}
 
-	buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
-	buildCmd.Dir = getProjectRoot(t)
-	if out, err := buildCmd.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+	if shouldBuildBinary() {
+		buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
+		buildCmd.Dir = getProjectRoot(t)
+		if out, err := buildCmd.CombinedOutput(); err != nil {
+			t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+		}
+		defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 	}
-	defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 
 	tmpFile, err := os.CreateTemp("", "loadshow-e2e-custom-*.mp4")
 	if err != nil {
@@ -229,12 +244,14 @@ func TestRecordWithDebugOutput(t *testing.T) {
 		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
 	}
 
-	buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
-	buildCmd.Dir = getProjectRoot(t)
-	if out, err := buildCmd.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+	if shouldBuildBinary() {
+		buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
+		buildCmd.Dir = getProjectRoot(t)
+		if out, err := buildCmd.CombinedOutput(); err != nil {
+			t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+		}
+		defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 	}
-	defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 
 	// Create temp directories
 	tmpDir, err := os.MkdirTemp("", "loadshow-e2e-debug-*")
@@ -298,12 +315,14 @@ func TestVersionCommand(t *testing.T) {
 		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
 	}
 
-	buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
-	buildCmd.Dir = getProjectRoot(t)
-	if out, err := buildCmd.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+	if shouldBuildBinary() {
+		buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
+		buildCmd.Dir = getProjectRoot(t)
+		if out, err := buildCmd.CombinedOutput(); err != nil {
+			t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+		}
+		defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 	}
-	defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 
 	cmd := exec.Command(getBinaryPath(), "version")
 	cmd.Dir = getProjectRoot(t)
@@ -325,12 +344,14 @@ func TestJuxtaposeCommand(t *testing.T) {
 		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
 	}
 
-	buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
-	buildCmd.Dir = getProjectRoot(t)
-	if out, err := buildCmd.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+	if shouldBuildBinary() {
+		buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
+		buildCmd.Dir = getProjectRoot(t)
+		if out, err := buildCmd.CombinedOutput(); err != nil {
+			t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+		}
+		defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 	}
-	defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 
 	// First, create two videos to juxtapose
 	tmpDir, err := os.MkdirTemp("", "loadshow-e2e-juxta-*")
@@ -398,12 +419,14 @@ func TestRecordWithProxy(t *testing.T) {
 	// This test just verifies the proxy option is accepted
 	// Actual proxy testing would require a proxy server
 
-	buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
-	buildCmd.Dir = getProjectRoot(t)
-	if out, err := buildCmd.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+	if shouldBuildBinary() {
+		buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
+		buildCmd.Dir = getProjectRoot(t)
+		if out, err := buildCmd.CombinedOutput(); err != nil {
+			t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+		}
+		defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 	}
-	defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
 
 	// Just verify the help shows the proxy option
 	cmd := exec.Command(getBinaryPath(), "record", "--help")
