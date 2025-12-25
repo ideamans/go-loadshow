@@ -213,14 +213,24 @@ Flags:
 ### juxtapose
 
 ```
-Usage: loadshow juxtapose <left> <right> -o <output>
+Usage: loadshow juxtapose <left> <right> -o <output> [flags]
 
 Arguments:
   <left>   Left video file path
   <right>  Right video file path
 
 Flags:
-  -o, --output=STRING    Output MP4 file path (required)
+  Output:
+    -o, --output STRING    Output MP4 file path (required)
+
+  Preset:
+    -q, --quality STRING   Quality preset: low, medium, high (default: medium)
+
+  Layout and Style:
+        --gap INT          Gap between videos in pixels (default: 10)
+
+  Video and Quality:
+        --video-crf INT    Video CRF (0-63, overrides quality preset)
 ```
 
 ## Go Library Usage

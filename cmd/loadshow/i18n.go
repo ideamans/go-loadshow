@@ -95,9 +95,12 @@ func init() {
 		"Output saved to %s":            "出力を %s に保存しました",
 		"Interrupted, shutting down...": "中断されました。シャットダウン中...",
 
+		// Juxtapose flags
+		"Gap between videos in pixels": "動画間の隙間（ピクセル）",
+
 		// Juxtapose messages
-		"Juxtapose command not yet implemented.":       "Juxtaposeコマンドはまだ実装されていません。",
-		"Would create comparison from %s and %s to %s": "%s と %s から %s への比較動画を作成します",
+		"Creating comparison video: %s + %s → %s": "比較動画を作成中: %s + %s → %s",
+		"Frames: %d, Duration: %dms":              "フレーム数: %d, 再生時間: %dms",
 
 		// Orchestrator messages
 		"Encoding video with CRF %d": "CRF %d で動画をエンコード中",

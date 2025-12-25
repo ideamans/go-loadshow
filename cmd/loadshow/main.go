@@ -15,6 +15,7 @@ import (
 	"github.com/ideamans/go-l10n"
 	"github.com/urfave/cli/v2"
 
+	"github.com/user/loadshow/pkg/adapters/av1decoder"
 	"github.com/user/loadshow/pkg/adapters/av1encoder"
 	"github.com/user/loadshow/pkg/adapters/capturehtml"
 	"github.com/user/loadshow/pkg/adapters/chromebrowser"
@@ -24,6 +25,7 @@ import (
 	"github.com/user/loadshow/pkg/adapters/nullsink"
 	"github.com/user/loadshow/pkg/adapters/osfilesystem"
 	"github.com/user/loadshow/pkg/config"
+	"github.com/user/loadshow/pkg/juxtapose"
 	"github.com/user/loadshow/pkg/loadshow"
 	"github.com/user/loadshow/pkg/orchestrator"
 	"github.com/user/loadshow/pkg/ports"
@@ -358,6 +360,17 @@ func juxtaposeCommand() *cli.Command {
 				Usage:    l10n.T("Quality preset (low, medium, high)"),
 				Category: l10n.T(catPreset),
 			},
+			&cli.IntFlag{
+				Name:     "video-crf",
+				Usage:    l10n.T("Video CRF value (0-63, lower is better, overrides quality preset)"),
+				Category: l10n.T(catVideoQuality),
+			},
+			&cli.IntFlag{
+				Name:     "gap",
+				Value:    10,
+				Usage:    l10n.T("Gap between videos in pixels"),
+				Category: l10n.T(catLayoutStyle),
+			},
 		},
 		Action: runJuxtapose,
 	}
@@ -558,8 +571,63 @@ func runJuxtapose(c *cli.Context) error {
 	}
 	left := c.Args().Get(0)
 	right := c.Args().Get(1)
+	output := c.String("output")
 
-	fmt.Println(l10n.T("Juxtapose command not yet implemented."))
-	fmt.Println(l10n.F("Would create comparison from %s and %s to %s", left, right, c.String("output")))
+	// Create logger
+	log := logger.NewConsole(ports.LevelInfo)
+
+	// Setup context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle signals
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		log.Warn(l10n.T("Interrupted, shutting down..."))
+		cancel()
+	}()
+
+	// Determine CRF from quality preset or explicit value
+	videoCRF := c.Int("video-crf")
+	if videoCRF == 0 {
+		// Use quality preset
+		qualityPreset := loadshow.QualityPreset(c.String("quality"))
+		settings := loadshow.GetQualitySettings(qualityPreset)
+		videoCRF = settings.VideoCRF
+	}
+
+	// Create adapters
+	fs := osfilesystem.New()
+	decoder := av1decoder.NewMP4Reader()
+	encoder := av1encoder.New()
+
+	// Create juxtapose options
+	opts := juxtapose.Options{
+		Gap:     c.Int("gap"),
+		FPS:     30.0,
+		Quality: videoCRF,
+		Bitrate: 0,
+	}
+
+	// Create and run juxtapose stage
+	stage := juxtapose.New(decoder, encoder, fs, log, opts)
+
+	log.Info(l10n.F("Creating comparison video: %s + %s → %s", left, right, output))
+	log.Info(l10n.F("Encoding video with CRF %d", videoCRF))
+
+	result, err := stage.Execute(ctx, juxtapose.Input{
+		LeftPath:   left,
+		RightPath:  right,
+		OutputPath: output,
+	})
+	if err != nil {
+		return fmt.Errorf("juxtapose: %w", err)
+	}
+
+	log.Info(l10n.F("Output saved to %s", result.OutputPath))
+	log.Info(l10n.F("Frames: %d, Duration: %dms", result.FrameCount, result.DurationMs))
+
 	return nil
 }

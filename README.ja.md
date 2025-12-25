@@ -213,14 +213,24 @@ loadshow record https://example.com -o output.mp4 -d --debug-dir ./debug
 ### juxtapose
 
 ```
-使用法: loadshow juxtapose <left> <right> -o <output>
+使用法: loadshow juxtapose <left> <right> -o <output> [flags]
 
 引数:
   <left>   左側の動画ファイルパス
   <right>  右側の動画ファイルパス
 
 フラグ:
-  -o, --output=STRING    出力MP4ファイルパス（必須）
+  出力先:
+    -o, --output STRING    出力MP4ファイルパス（必須）
+
+  プリセット:
+    -q, --quality STRING   品質プリセット: low, medium, high（デフォルト: medium）
+
+  レイアウトとスタイル:
+        --gap INT          動画間の隙間（ピクセル、デフォルト: 10）
+
+  動画と品質:
+        --video-crf INT    動画CRF値（0-63、品質プリセットを上書き）
 ```
 
 ## GoライブラリとしてのAPI利用
