@@ -2,8 +2,8 @@
 set -e
 
 # Configuration
-LIBAOM_VERSION="v3.8.0"
-LIBAOM_REPO="https://aomedia.googlesource.com/aom"
+LIBAOM_VERSION="3.8.0"
+LIBAOM_TARBALL="https://storage.googleapis.com/aom-releases/libaom-${LIBAOM_VERSION}.tar.gz"
 
 # Parse arguments
 STATIC=false
@@ -35,9 +35,13 @@ build_libaom_static() {
 
     echo "Building libaom ${LIBAOM_VERSION} from source..."
 
-    # Clone if not exists
+    # Download and extract if not exists
     if [ ! -d "aom" ]; then
-        git clone --depth 1 --branch "${LIBAOM_VERSION}" "${LIBAOM_REPO}"
+        echo "Downloading libaom ${LIBAOM_VERSION}..."
+        curl -L "${LIBAOM_TARBALL}" -o libaom.tar.gz
+        tar -xzf libaom.tar.gz
+        mv "libaom-${LIBAOM_VERSION}" aom
+        rm libaom.tar.gz
     fi
 
     cd aom
@@ -97,7 +101,7 @@ setup_windows() {
             mingw-w64-ucrt-x86_64-ninja \
             mingw-w64-ucrt-x86_64-gcc \
             mingw-w64-ucrt-x86_64-pkg-config \
-            git
+            mingw-w64-ucrt-x86_64-curl
         build_libaom_static "/ucrt64"
     else
         pacman -S --noconfirm --needed \
