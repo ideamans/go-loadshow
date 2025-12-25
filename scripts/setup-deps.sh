@@ -45,7 +45,8 @@ build_libaom_static() {
     fi
 
     cd aom
-    rm -rf build && mkdir build && cd build
+    # Use _build directory to avoid conflicting with source's build/cmake directory
+    rm -rf _build && mkdir _build && cd _build
 
     CC=$cc cmake .. -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
