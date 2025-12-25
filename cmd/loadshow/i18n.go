@@ -8,6 +8,17 @@ import (
 func init() {
 	// Register Japanese translations for CLI messages.
 	l10n.Register("ja", l10n.LexiconMap{
+		// Flag categories
+		"Output":               "出力先",
+		"Preset":               "プリセット",
+		"Browser":              "ブラウザ設定",
+		"Performance Emulation": "性能エミュレーション",
+		"Layout and Style":     "レイアウトとスタイル",
+		"Banner":               "バナー",
+		"Video and Quality":    "動画と品質",
+		"Debug":                "デバッグ",
+		"Logging":              "ログ",
+
 		// Root command
 		"Create page load videos for web performance visualization":            "Webページの読み込みパフォーマンスを可視化する動画を作成",
 		"loadshow creates videos that visualize web page loading performance.": "loadshowはWebページの読み込みパフォーマンスを可視化する動画を作成します。",
@@ -90,5 +101,9 @@ func init() {
 
 		// Orchestrator messages
 		"Encoding video with CRF %d": "CRF %d で動画をエンコード中",
+
+		// Error messages
+		"URL argument is required":       "URL引数が必要です",
+		"Two video arguments are required": "2つの動画引数が必要です",
 	})
 }

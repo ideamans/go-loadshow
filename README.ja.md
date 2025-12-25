@@ -63,11 +63,27 @@ loadshow version                       バージョン情報を表示
 ### 基本的な記録
 
 ```bash
-# デスクトッププリセットでページを記録
+# モバイルプリセットでページを記録（デフォルト）
 loadshow record https://example.com -o output.mp4
 
-# モバイルプリセットで記録
-loadshow record https://example.com -o output.mp4 -p mobile
+# デスクトッププリセットで記録
+loadshow record https://example.com -o output.mp4 -p desktop
+```
+
+### 品質プリセット
+
+```bash
+# 低品質（高速、小ファイルサイズ）
+loadshow record https://example.com -o output.mp4 -q low
+
+# 高品質（低速、大ファイルサイズ）
+loadshow record https://example.com -o output.mp4 -q high
+
+# カスタムCRF値（0-63、低いほど高品質、プリセットを上書き）
+loadshow record https://example.com -o output.mp4 --video-crf 20
+
+# カスタムスクリーンキャスト品質（0-100、プリセットを上書き）
+loadshow record https://example.com -o output.mp4 --screencast-quality 90
 ```
 
 ### 動画オプション
@@ -75,16 +91,16 @@ loadshow record https://example.com -o output.mp4 -p mobile
 ```bash
 # カスタム動画サイズ
 loadshow record https://example.com -o output.mp4 -W 640 -H 480
-
-# 高画質（CRFが低いほど高品質、ファイルサイズ増）
-loadshow record https://example.com -o output.mp4 -q 20
 ```
 
 ### ネットワークスロットリング
 
 ```bash
-# 低速3G接続をシミュレート（50KB/s）
-loadshow record https://example.com -o output.mp4 --download-speed 51200
+# 低速接続をシミュレート（1.5 Mbps）
+loadshow record https://example.com -o output.mp4 --download-mbps 1.5
+
+# 低速アップロードをシミュレート（0.5 Mbps）
+loadshow record https://example.com -o output.mp4 --upload-mbps 0.5
 ```
 
 ### CPUスロットリング
@@ -145,34 +161,53 @@ loadshow record https://example.com -o output.mp4 -d --debug-dir ./debug
   <url>    記録するページのURL
 
 フラグ:
-  -o, --output=STRING          出力MP4ファイルパス（必須）
-  -p, --preset="desktop"       プリセット: desktop または mobile
-  -W, --width=INT              出力動画の幅
-  -H, --height=INT             出力動画の高さ
-      --viewport-width=INT     ブラウザビューポート幅
-  -c, --columns=INT            カラム数
-      --margin=INT             キャンバス周りの余白
-      --gap=INT                カラム間の間隔
-      --indent=INT             2列目以降の上余白
-      --outdent=INT            1列目の下余白
-      --background-color=STR   背景色（16進数）
-      --border-color=STR       枠線色（16進数）
-      --border-width=INT       枠線幅（ピクセル）
-  -q, --quality=INT            動画品質（CRF 0-63）
-      --outro-ms=INT           最終フレーム保持時間（ミリ秒）
-      --credit=STRING          バナーに表示するテキスト
-      --download-speed=INT     ダウンロード速度制限（bytes/sec）
-      --upload-speed=INT       アップロード速度制限（bytes/sec）
-      --cpu-throttling=FLOAT   CPU速度低下係数
-  -d, --debug                  デバッグ出力を有効化
-      --debug-dir=STRING       デバッグ出力ディレクトリ
-      --no-headless            ブラウザを表示
-      --chrome-path=STRING     Chromeのパス
-      --ignore-https-errors    証明書エラーを無視
-      --proxy-server=STRING    HTTPプロキシサーバー
-      --no-incognito           シークレットモードを無効化
-  -l, --log-level="info"       ログレベル: debug,info,warn,error
-  -Q, --quiet                  ログ出力を抑制
+  出力先:
+    -o, --output STRING        出力MP4ファイルパス（必須）
+
+  プリセット:
+    -p, --preset STRING        デバイスプリセット: desktop, mobile（デフォルト: mobile）
+    -q, --quality STRING       品質プリセット: low, medium, high（デフォルト: medium）
+
+  ブラウザ設定:
+        --viewport-width INT   ブラウザビューポート幅（最小: 500）
+        --chrome-path STRING   Chrome実行ファイルのパス
+        --no-headless          ブラウザを非ヘッドレスモードで実行
+        --no-incognito         シークレットモードを無効化
+        --ignore-https-errors  HTTPS証明書エラーを無視
+        --proxy-server STRING  HTTPプロキシサーバー（例: http://proxy:8080）
+
+  性能エミュレーション:
+        --download-mbps FLOAT  ダウンロード速度（Mbps、0 = 無制限）
+        --upload-mbps FLOAT    アップロード速度（Mbps、0 = 無制限）
+        --cpu-throttling FLOAT CPUスローダウン係数（1.0 = 制限なし）
+
+  レイアウトとスタイル:
+    -c, --columns INT          カラム数（最小: 1）
+        --margin INT           キャンバス周りの余白（ピクセル）
+        --gap INT              カラム間の間隔（ピクセル）
+        --indent INT           2列目以降の追加上余白
+        --outdent INT          1列目の追加下余白
+        --background-color STR 背景色（16進数、例: #dcdcdc）
+        --border-color STR     枠線色（16進数、例: #b4b4b4）
+        --border-width INT     枠線幅（ピクセル）
+
+  バナー:
+        --credit STRING        バナーに表示するカスタムテキスト
+
+  動画と品質:
+    -W, --width INT            出力動画の幅
+    -H, --height INT           出力動画の高さ
+        --video-crf INT        動画CRF値（0-63、品質プリセットを上書き）
+        --screencast-quality INT  スクリーンキャストJPEG品質（0-100、プリセットを上書き）
+        --outro-ms INT         最終フレーム保持時間（ミリ秒）
+
+  デバッグ:
+    -d, --debug                デバッグ出力を有効化
+        --debug-dir STRING     デバッグ出力ディレクトリ（デフォルト: ./debug）
+
+  ログ:
+    -l, --log-level STRING     ログレベル: debug, info, warn, error（デフォルト: info）
+    -Q, --quiet                全てのログ出力を抑制
 ```
 
 ### juxtapose
@@ -227,16 +262,16 @@ import (
 )
 
 func main() {
-    // デスクトッププリセットで設定を作成
+    // モバイルプリセットで設定を作成（デフォルト）
     cfg := loadshow.NewConfigBuilder().
         WithWidth(512).
         WithHeight(640).
         WithColumns(3).
-        WithQuality(30).
+        WithVideoCRF(30).
         Build()
 
-    // またはモバイルプリセットを使用
-    // cfg := loadshow.NewMobileConfigBuilder().Build()
+    // またはデスクトッププリセットを使用
+    // cfg := loadshow.NewDesktopConfigBuilder().Build()
 
     // アダプタを作成
     fs := osfilesystem.New()
@@ -297,7 +332,8 @@ builder.WithBorderColor(color.RGBA{180, 180, 180, 255})
 builder.WithBorderWidth(1)
 
 // エンコードオプション
-builder.WithQuality(30)          // CRF 0-63（低いほど高品質）
+builder.WithVideoCRF(30)         // 動画CRF 0-63（低いほど高品質）
+builder.WithScreencastQuality(80) // スクリーンキャストJPEG品質 0-100
 builder.WithOutroMs(2000)        // 最終フレーム保持時間
 
 // ネットワークスロットリング

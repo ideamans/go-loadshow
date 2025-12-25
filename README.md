@@ -63,11 +63,27 @@ loadshow version                       Show version information
 ### Basic Recording
 
 ```bash
-# Record a page with desktop preset
+# Record a page with mobile preset (default)
 loadshow record https://example.com -o output.mp4
 
-# Record with mobile preset
-loadshow record https://example.com -o output.mp4 -p mobile
+# Record with desktop preset
+loadshow record https://example.com -o output.mp4 -p desktop
+```
+
+### Quality Presets
+
+```bash
+# Low quality (fast, smaller file)
+loadshow record https://example.com -o output.mp4 -q low
+
+# High quality (slower, larger file)
+loadshow record https://example.com -o output.mp4 -q high
+
+# Custom video CRF (0-63, lower = better quality, overrides preset)
+loadshow record https://example.com -o output.mp4 --video-crf 20
+
+# Custom screencast quality (0-100, overrides preset)
+loadshow record https://example.com -o output.mp4 --screencast-quality 90
 ```
 
 ### Video Options
@@ -75,16 +91,16 @@ loadshow record https://example.com -o output.mp4 -p mobile
 ```bash
 # Custom video dimensions
 loadshow record https://example.com -o output.mp4 -W 640 -H 480
-
-# Higher quality (lower CRF = better quality, larger file)
-loadshow record https://example.com -o output.mp4 -q 20
 ```
 
 ### Network Throttling
 
 ```bash
-# Simulate slow 3G connection (50KB/s download)
-loadshow record https://example.com -o output.mp4 --download-speed 51200
+# Simulate slow connection (1.5 Mbps download)
+loadshow record https://example.com -o output.mp4 --download-mbps 1.5
+
+# Simulate slow upload (0.5 Mbps)
+loadshow record https://example.com -o output.mp4 --upload-mbps 0.5
 ```
 
 ### CPU Throttling
@@ -145,34 +161,53 @@ Arguments:
   <url>    URL of the page to record
 
 Flags:
-  -o, --output=STRING          Output MP4 file path (required)
-  -p, --preset="desktop"       Preset: desktop or mobile
-  -W, --width=INT              Output video width
-  -H, --height=INT             Output video height
-      --viewport-width=INT     Browser viewport width
-  -c, --columns=INT            Number of columns
-      --margin=INT             Margin around canvas
-      --gap=INT                Gap between columns
-      --indent=INT             Top margin for columns 2+
-      --outdent=INT            Bottom margin for column 1
-      --background-color=STR   Background color (hex)
-      --border-color=STR       Border color (hex)
-      --border-width=INT       Border width in pixels
-  -q, --quality=INT            Video quality (CRF 0-63)
-      --outro-ms=INT           Final frame hold duration (ms)
-      --credit=STRING          Custom banner text
-      --download-speed=INT     Download throttle (bytes/sec)
-      --upload-speed=INT       Upload throttle (bytes/sec)
-      --cpu-throttling=FLOAT   CPU slowdown factor
-  -d, --debug                  Enable debug output
-      --debug-dir=STRING       Debug output directory
-      --no-headless            Run browser visibly
-      --chrome-path=STRING     Path to Chrome
-      --ignore-https-errors    Ignore cert errors
-      --proxy-server=STRING    HTTP proxy server
-      --no-incognito           Disable incognito mode
-  -l, --log-level="info"       Log level: debug,info,warn,error
-  -Q, --quiet                  Suppress all log output
+  Output:
+    -o, --output STRING        Output MP4 file path (required)
+
+  Preset:
+    -p, --preset STRING        Device preset: desktop, mobile (default: mobile)
+    -q, --quality STRING       Quality preset: low, medium, high (default: medium)
+
+  Browser:
+        --viewport-width INT   Browser viewport width (min: 500)
+        --chrome-path STRING   Path to Chrome executable
+        --no-headless          Run browser in non-headless mode
+        --no-incognito         Disable incognito mode
+        --ignore-https-errors  Ignore HTTPS certificate errors
+        --proxy-server STRING  HTTP proxy server (e.g., http://proxy:8080)
+
+  Performance Emulation:
+        --download-mbps FLOAT  Download speed in Mbps (0 = unlimited)
+        --upload-mbps FLOAT    Upload speed in Mbps (0 = unlimited)
+        --cpu-throttling FLOAT CPU slowdown factor (1.0 = no throttling)
+
+  Layout and Style:
+    -c, --columns INT          Number of columns (min: 1)
+        --margin INT           Margin around canvas in pixels
+        --gap INT              Gap between columns in pixels
+        --indent INT           Additional top margin for columns 2+
+        --outdent INT          Additional bottom margin for column 1
+        --background-color STR Background color (hex, e.g., #dcdcdc)
+        --border-color STR     Border color (hex, e.g., #b4b4b4)
+        --border-width INT     Border width in pixels
+
+  Banner:
+        --credit STRING        Custom text shown in banner
+
+  Video and Quality:
+    -W, --width INT            Output video width
+    -H, --height INT           Output video height
+        --video-crf INT        Video CRF (0-63, overrides quality preset)
+        --screencast-quality INT  Screencast JPEG quality (0-100, overrides preset)
+        --outro-ms INT         Duration to hold final frame (ms)
+
+  Debug:
+    -d, --debug                Enable debug output
+        --debug-dir STRING     Directory for debug output (default: ./debug)
+
+  Logging:
+    -l, --log-level STRING     Log level: debug, info, warn, error (default: info)
+    -Q, --quiet                Suppress all log output
 ```
 
 ### juxtapose
@@ -227,16 +262,16 @@ import (
 )
 
 func main() {
-    // Create configuration with desktop preset
+    // Create configuration with mobile preset (default)
     cfg := loadshow.NewConfigBuilder().
         WithWidth(512).
         WithHeight(640).
         WithColumns(3).
-        WithQuality(30).
+        WithVideoCRF(30).
         Build()
 
-    // Or use mobile preset
-    // cfg := loadshow.NewMobileConfigBuilder().Build()
+    // Or use desktop preset
+    // cfg := loadshow.NewDesktopConfigBuilder().Build()
 
     // Create adapters
     fs := osfilesystem.New()
@@ -297,7 +332,8 @@ builder.WithBorderColor(color.RGBA{180, 180, 180, 255})
 builder.WithBorderWidth(1)
 
 // Encoding options
-builder.WithQuality(30)          // CRF 0-63 (lower = better)
+builder.WithVideoCRF(30)         // Video CRF 0-63 (lower = better)
+builder.WithScreencastQuality(80) // Screencast JPEG quality 0-100
 builder.WithOutroMs(2000)        // Final frame hold duration
 
 // Network throttling

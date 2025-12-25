@@ -3,14 +3,17 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 
 	"github.com/ideamans/go-l10n"
-	"github.com/spf13/cobra"
+	"github.com/urfave/cli/v2"
 
 	"github.com/user/loadshow/pkg/adapters/av1encoder"
 	"github.com/user/loadshow/pkg/adapters/capturehtml"
@@ -33,185 +36,348 @@ import (
 
 var version = "dev"
 
-// Record command flags
-var recordFlags struct {
-	// Required
-	output string
+// Flag category names (will be translated)
+// Order is controlled by customCommandHelpTemplate
+const (
+	catOutput      = "Output"
+	catPreset      = "Preset"
+	catBrowser     = "Browser"
+	catPerformance = "Performance Emulation"
+	catLayoutStyle = "Layout and Style"
+	catBanner      = "Banner"
+	catVideoQuality = "Video and Quality"
+	catDebug       = "Debug"
+	catLogging     = "Logging"
+)
 
-	// Preset
-	preset  string
-	quality string
-
-	// Video output
-	width    int
-	height   int
-	videoCRF int
-	outroMs  int
-
-	// Recording
-	screencastQuality int
-	viewportWidth     int
-
-	// Layout
-	columns int
-	margin  int
-	gap     int
-	indent  int
-	outdent int
-
-	// Style
-	backgroundColor string
-	borderColor     string
-	borderWidth     int
-
-	// Network throttling
-	downloadMbps float64
-	uploadMbps   float64
-
-	// CPU throttling
-	cpuThrottling float64
-
-	// Banner
-	credit string
-
-	// Browser
-	noHeadless  bool
-	chromePath  string
-	ignoreHTTPS bool
-	proxyServer string
-	noIncognito bool
-
-	// Debug
-	debug    bool
-	debugDir string
-
-	// Logging
-	logLevel string
-	quiet    bool
+// categoryOrder defines the display order of flag categories
+var categoryOrder = []string{
+	"Output",
+	"Preset",
+	"Browser",
+	"Performance Emulation",
+	"Layout and Style",
+	"Banner",
+	"Video and Quality",
+	"Debug",
+	"Logging",
 }
 
-// Juxtapose command flags
-var juxtaposeFlags struct {
-	output  string
-	quality string
+// orderedCategories returns categories in the specified order
+func orderedCategories(categories []cli.VisibleFlagCategory) []cli.VisibleFlagCategory {
+	// Create a map for quick lookup
+	catMap := make(map[string]cli.VisibleFlagCategory)
+	for _, cat := range categories {
+		catMap[cat.Name()] = cat
+	}
+
+	// Build ordered list based on translated category names
+	var ordered []cli.VisibleFlagCategory
+	for _, name := range categoryOrder {
+		translatedName := l10n.T(name)
+		if cat, ok := catMap[translatedName]; ok {
+			ordered = append(ordered, cat)
+			delete(catMap, translatedName)
+		} else if cat, ok := catMap[name]; ok {
+			ordered = append(ordered, cat)
+			delete(catMap, name)
+		}
+	}
+	// Append any remaining categories not in our order
+	for _, cat := range catMap {
+		ordered = append(ordered, cat)
+	}
+	return ordered
+}
+
+func init() {
+	// Override help printer for commands
+	originalHelpPrinter := cli.HelpPrinter
+	cli.HelpPrinter = func(w io.Writer, templ string, data interface{}) {
+		// Check if this is a command with categories
+		if cmd, ok := data.(*cli.Command); ok && len(cmd.VisibleFlagCategories()) > 0 {
+			printOrderedCommandHelp(w, cmd)
+			return
+		}
+		originalHelpPrinter(w, templ, data)
+	}
+}
+
+// printOrderedCommandHelp prints command help with categories in specified order
+func printOrderedCommandHelp(w io.Writer, cmd *cli.Command) {
+	categories := cmd.VisibleFlagCategories()
+	ordered := orderedCategories(categories)
+
+	fmt.Fprintf(w, "NAME:\n   %s - %s\n\n", cmd.HelpName, cmd.Usage)
+	fmt.Fprintf(w, "USAGE:\n   %s [command options] %s\n\n", cmd.HelpName, cmd.ArgsUsage)
+	fmt.Fprintln(w, "OPTIONS:")
+
+	for _, cat := range ordered {
+		fmt.Fprintf(w, "   %s\n\n", cat.Name())
+		for _, flag := range cat.Flags() {
+			flagStr := strings.TrimSpace(flag.String())
+			// Indent multi-line flag descriptions
+			lines := strings.Split(flagStr, "\n")
+			for i, line := range lines {
+				if i == 0 {
+					fmt.Fprintf(w, "   %s\n", line)
+				} else {
+					fmt.Fprintf(w, "      %s\n", strings.TrimSpace(line))
+				}
+			}
+		}
+		fmt.Fprintln(w)
+	}
 }
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
+	app := &cli.App{
+		Name:    "loadshow",
+		Usage:   l10n.T("Create page load videos for web performance visualization"),
+		Version: version,
+		Commands: []*cli.Command{
+			recordCommand(),
+			juxtaposeCommand(),
+		},
+	}
+
+	if err := app.Run(os.Args); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-var rootCmd = &cobra.Command{
-	Use:   "loadshow",
-	Short: l10n.T("Create page load videos for web performance visualization"),
-	Long:  l10n.T("loadshow creates videos that visualize web page loading performance."),
+func recordCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "record",
+		Usage:     l10n.T("Record a web page loading as MP4 video"),
+		ArgsUsage: "<url>",
+		Flags: []cli.Flag{
+			// ===== 1. Output =====
+			&cli.StringFlag{
+				Name:     "output",
+				Aliases:  []string{"o"},
+				Usage:    l10n.T("Output MP4 file path (required)"),
+				Required: true,
+				Category: l10n.T(catOutput),
+			},
+
+			// ===== 2. Preset =====
+			&cli.StringFlag{
+				Name:     "preset",
+				Aliases:  []string{"p"},
+				Value:    "mobile",
+				Usage:    l10n.T("Device preset (desktop, mobile)"),
+				Category: l10n.T(catPreset),
+			},
+			&cli.StringFlag{
+				Name:     "quality",
+				Aliases:  []string{"q"},
+				Value:    "medium",
+				Usage:    l10n.T("Quality preset (low, medium, high)"),
+				Category: l10n.T(catPreset),
+			},
+
+			// ===== 3. Browser =====
+			&cli.IntFlag{
+				Name:     "viewport-width",
+				Usage:    l10n.T("Browser viewport width (min: 500)"),
+				Category: l10n.T(catBrowser),
+			},
+			&cli.StringFlag{
+				Name:     "chrome-path",
+				Usage:    l10n.T("Path to Chrome executable"),
+				Category: l10n.T(catBrowser),
+			},
+			&cli.BoolFlag{
+				Name:     "no-headless",
+				Usage:    l10n.T("Run browser in non-headless mode"),
+				Category: l10n.T(catBrowser),
+			},
+			&cli.BoolFlag{
+				Name:     "no-incognito",
+				Usage:    l10n.T("Disable incognito mode"),
+				Category: l10n.T(catBrowser),
+			},
+			&cli.BoolFlag{
+				Name:     "ignore-https-errors",
+				Usage:    l10n.T("Ignore HTTPS certificate errors"),
+				Category: l10n.T(catBrowser),
+			},
+			&cli.StringFlag{
+				Name:     "proxy-server",
+				Usage:    l10n.T("HTTP proxy server (e.g., http://proxy:8080)"),
+				Category: l10n.T(catBrowser),
+			},
+
+			// ===== 4. Performance Emulation =====
+			&cli.Float64Flag{
+				Name:     "download-mbps",
+				Usage:    l10n.T("Download speed in Mbps (0 = unlimited)"),
+				Category: l10n.T(catPerformance),
+			},
+			&cli.Float64Flag{
+				Name:     "upload-mbps",
+				Usage:    l10n.T("Upload speed in Mbps (0 = unlimited)"),
+				Category: l10n.T(catPerformance),
+			},
+			&cli.Float64Flag{
+				Name:     "cpu-throttling",
+				Usage:    l10n.T("CPU slowdown factor (1.0 = no throttling, 4.0 = 4x slower)"),
+				Category: l10n.T(catPerformance),
+			},
+
+			// ===== 5. Layout and Style =====
+			&cli.IntFlag{
+				Name:     "columns",
+				Aliases:  []string{"c"},
+				Usage:    l10n.T("Number of columns (min: 1)"),
+				Category: l10n.T(catLayoutStyle),
+			},
+			&cli.IntFlag{
+				Name:     "margin",
+				Usage:    l10n.T("Margin around the canvas in pixels"),
+				Category: l10n.T(catLayoutStyle),
+			},
+			&cli.IntFlag{
+				Name:     "gap",
+				Usage:    l10n.T("Gap between columns in pixels"),
+				Category: l10n.T(catLayoutStyle),
+			},
+			&cli.IntFlag{
+				Name:     "indent",
+				Usage:    l10n.T("Additional top margin for columns 2+"),
+				Category: l10n.T(catLayoutStyle),
+			},
+			&cli.IntFlag{
+				Name:     "outdent",
+				Usage:    l10n.T("Additional bottom margin for column 1"),
+				Category: l10n.T(catLayoutStyle),
+			},
+			&cli.StringFlag{
+				Name:     "background-color",
+				Usage:    l10n.T("Background color (hex, e.g., #dcdcdc)"),
+				Category: l10n.T(catLayoutStyle),
+			},
+			&cli.StringFlag{
+				Name:     "border-color",
+				Usage:    l10n.T("Border color (hex, e.g., #b4b4b4)"),
+				Category: l10n.T(catLayoutStyle),
+			},
+			&cli.IntFlag{
+				Name:     "border-width",
+				Usage:    l10n.T("Border width in pixels"),
+				Category: l10n.T(catLayoutStyle),
+			},
+
+			// ===== 6. Banner =====
+			&cli.StringFlag{
+				Name:     "credit",
+				Usage:    l10n.T("Custom text shown in banner (default: loadshow)"),
+				Category: l10n.T(catBanner),
+			},
+
+			// ===== 7. Video and Quality =====
+			&cli.IntFlag{
+				Name:     "width",
+				Aliases:  []string{"W"},
+				Usage:    l10n.T("Output video width (default: 512)"),
+				Category: l10n.T(catVideoQuality),
+			},
+			&cli.IntFlag{
+				Name:     "height",
+				Aliases:  []string{"H"},
+				Usage:    l10n.T("Output video height (default: 640)"),
+				Category: l10n.T(catVideoQuality),
+			},
+			&cli.IntFlag{
+				Name:     "video-crf",
+				Usage:    l10n.T("Video CRF value (0-63, lower is better, overrides quality preset)"),
+				Category: l10n.T(catVideoQuality),
+			},
+			&cli.IntFlag{
+				Name:     "screencast-quality",
+				Usage:    l10n.T("Screencast JPEG quality (0-100, overrides quality preset)"),
+				Category: l10n.T(catVideoQuality),
+			},
+			&cli.IntFlag{
+				Name:     "outro-ms",
+				Usage:    l10n.T("Duration to hold final frame in milliseconds"),
+				Category: l10n.T(catVideoQuality),
+			},
+
+			// ===== 8. Debug =====
+			&cli.BoolFlag{
+				Name:     "debug",
+				Aliases:  []string{"d"},
+				Usage:    l10n.T("Enable debug output"),
+				Category: l10n.T(catDebug),
+			},
+			&cli.StringFlag{
+				Name:     "debug-dir",
+				Value:    "./debug",
+				Usage:    l10n.T("Directory for debug output"),
+				Category: l10n.T(catDebug),
+			},
+
+			// ===== 9. Logging =====
+			&cli.StringFlag{
+				Name:     "log-level",
+				Aliases:  []string{"l"},
+				Value:    "info",
+				Usage:    l10n.T("Log level (debug, info, warn, error)"),
+				Category: l10n.T(catLogging),
+			},
+			&cli.BoolFlag{
+				Name:     "quiet",
+				Usage:    l10n.T("Suppress all log output"),
+				Category: l10n.T(catLogging),
+			},
+		},
+		Action: runRecord,
+	}
 }
 
-var recordCmd = &cobra.Command{
-	Use:   "record <url>",
-	Short: l10n.T("Record a web page loading as MP4 video"),
-	Long:  l10n.T("Record the loading process of a web page and save it as an MP4 video."),
-	Args:  cobra.ExactArgs(1),
-	RunE:  runRecord,
+func juxtaposeCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "juxtapose",
+		Usage:     l10n.T("Create a side-by-side comparison video"),
+		ArgsUsage: "<left> <right>",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     "output",
+				Aliases:  []string{"o"},
+				Usage:    l10n.T("Output MP4 file path (required)"),
+				Required: true,
+				Category: l10n.T(catOutput),
+			},
+			&cli.StringFlag{
+				Name:     "quality",
+				Aliases:  []string{"q"},
+				Value:    "medium",
+				Usage:    l10n.T("Quality preset (low, medium, high)"),
+				Category: l10n.T(catPreset),
+			},
+		},
+		Action: runJuxtapose,
+	}
 }
 
-var juxtaposeCmd = &cobra.Command{
-	Use:   "juxtapose <left> <right>",
-	Short: l10n.T("Create a side-by-side comparison video"),
-	Long:  l10n.T("Create a side-by-side comparison video from two input videos."),
-	Args:  cobra.ExactArgs(2),
-	RunE:  runJuxtapose,
-}
-
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: l10n.T("Show version information"),
-	Long:  l10n.T("Display the version of loadshow."),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(l10n.F("loadshow (Go) version %s", version))
-	},
-}
-
-func init() {
-	// Add subcommands
-	rootCmd.AddCommand(recordCmd)
-	rootCmd.AddCommand(juxtaposeCmd)
-	rootCmd.AddCommand(versionCmd)
-
-	// ===== Required =====
-	recordCmd.Flags().StringVarP(&recordFlags.output, "output", "o", "", l10n.T("Output MP4 file path (required)"))
-	recordCmd.MarkFlagRequired("output")
-
-	// ===== Preset =====
-	recordCmd.Flags().StringVarP(&recordFlags.preset, "preset", "p", "mobile", l10n.T("Device preset (desktop, mobile)"))
-	recordCmd.Flags().StringVarP(&recordFlags.quality, "quality", "q", "medium", l10n.T("Quality preset (low, medium, high)"))
-
-	// ===== Video Output =====
-	recordCmd.Flags().IntVarP(&recordFlags.width, "width", "W", 0, l10n.T("Output video width (default: 512)"))
-	recordCmd.Flags().IntVarP(&recordFlags.height, "height", "H", 0, l10n.T("Output video height (default: 640)"))
-	recordCmd.Flags().IntVar(&recordFlags.videoCRF, "video-crf", 0, l10n.T("Video CRF value (0-63, lower is better, overrides quality preset)"))
-	recordCmd.Flags().IntVar(&recordFlags.outroMs, "outro-ms", 0, l10n.T("Duration to hold final frame in milliseconds"))
-
-	// ===== Recording =====
-	recordCmd.Flags().IntVar(&recordFlags.screencastQuality, "screencast-quality", 0, l10n.T("Screencast JPEG quality (0-100, overrides quality preset)"))
-	recordCmd.Flags().IntVar(&recordFlags.viewportWidth, "viewport-width", 0, l10n.T("Browser viewport width (min: 500)"))
-
-	// ===== Layout =====
-	recordCmd.Flags().IntVarP(&recordFlags.columns, "columns", "c", 0, l10n.T("Number of columns (min: 1)"))
-	recordCmd.Flags().IntVar(&recordFlags.margin, "margin", 0, l10n.T("Margin around the canvas in pixels"))
-	recordCmd.Flags().IntVar(&recordFlags.gap, "gap", 0, l10n.T("Gap between columns in pixels"))
-	recordCmd.Flags().IntVar(&recordFlags.indent, "indent", 0, l10n.T("Additional top margin for columns 2+"))
-	recordCmd.Flags().IntVar(&recordFlags.outdent, "outdent", 0, l10n.T("Additional bottom margin for column 1"))
-
-	// ===== Style =====
-	recordCmd.Flags().StringVar(&recordFlags.backgroundColor, "background-color", "", l10n.T("Background color (hex, e.g., #dcdcdc)"))
-	recordCmd.Flags().StringVar(&recordFlags.borderColor, "border-color", "", l10n.T("Border color (hex, e.g., #b4b4b4)"))
-	recordCmd.Flags().IntVar(&recordFlags.borderWidth, "border-width", 0, l10n.T("Border width in pixels"))
-
-	// ===== Network Throttling =====
-	recordCmd.Flags().Float64Var(&recordFlags.downloadMbps, "download-mbps", 0, l10n.T("Download speed in Mbps (0 = unlimited)"))
-	recordCmd.Flags().Float64Var(&recordFlags.uploadMbps, "upload-mbps", 0, l10n.T("Upload speed in Mbps (0 = unlimited)"))
-
-	// ===== CPU Throttling =====
-	recordCmd.Flags().Float64Var(&recordFlags.cpuThrottling, "cpu-throttling", 0, l10n.T("CPU slowdown factor (1.0 = no throttling, 4.0 = 4x slower)"))
-
-	// ===== Banner =====
-	recordCmd.Flags().StringVar(&recordFlags.credit, "credit", "", l10n.T("Custom text shown in banner (default: loadshow)"))
-
-	// ===== Browser =====
-	recordCmd.Flags().BoolVar(&recordFlags.noHeadless, "no-headless", false, l10n.T("Run browser in non-headless mode"))
-	recordCmd.Flags().StringVar(&recordFlags.chromePath, "chrome-path", "", l10n.T("Path to Chrome executable"))
-	recordCmd.Flags().BoolVar(&recordFlags.ignoreHTTPS, "ignore-https-errors", false, l10n.T("Ignore HTTPS certificate errors"))
-	recordCmd.Flags().StringVar(&recordFlags.proxyServer, "proxy-server", "", l10n.T("HTTP proxy server (e.g., http://proxy:8080)"))
-	recordCmd.Flags().BoolVar(&recordFlags.noIncognito, "no-incognito", false, l10n.T("Disable incognito mode"))
-
-	// ===== Debug =====
-	recordCmd.Flags().BoolVarP(&recordFlags.debug, "debug", "d", false, l10n.T("Enable debug output"))
-	recordCmd.Flags().StringVar(&recordFlags.debugDir, "debug-dir", "./debug", l10n.T("Directory for debug output"))
-
-	// ===== Logging =====
-	recordCmd.Flags().StringVarP(&recordFlags.logLevel, "log-level", "l", "info", l10n.T("Log level (debug, info, warn, error)"))
-	recordCmd.Flags().BoolVar(&recordFlags.quiet, "quiet", false, l10n.T("Suppress all log output"))
-
-	// ===== Juxtapose command flags =====
-	juxtaposeCmd.Flags().StringVarP(&juxtaposeFlags.output, "output", "o", "", l10n.T("Output MP4 file path (required)"))
-	juxtaposeCmd.Flags().StringVarP(&juxtaposeFlags.quality, "quality", "q", "medium", l10n.T("Quality preset (low, medium, high)"))
-	juxtaposeCmd.MarkFlagRequired("output")
-}
-
-func runRecord(cmd *cobra.Command, args []string) error {
-	url := args[0]
+func runRecord(c *cli.Context) error {
+	if c.NArg() < 1 {
+		return errors.New(l10n.T("URL argument is required"))
+	}
+	url := c.Args().Get(0)
 
 	// Build config from preset and overrides
-	cfg := buildRecordConfig()
+	cfg := buildRecordConfig(c)
 
 	// Create logger
 	var log ports.Logger
-	if recordFlags.quiet {
+	if c.Bool("quiet") {
 		log = logger.NewNoop()
 	} else {
-		log = logger.NewConsole(ports.ParseLogLevel(recordFlags.logLevel))
+		log = logger.NewConsole(ports.ParseLogLevel(c.String("log-level")))
 	}
 
 	// Setup context with cancellation
@@ -238,11 +404,12 @@ func runRecord(cmd *cobra.Command, args []string) error {
 
 	// Create debug sink
 	var sink ports.DebugSink
-	if recordFlags.debug {
-		if err := fs.MkdirAll(recordFlags.debugDir); err != nil {
+	if c.Bool("debug") {
+		debugDir := c.String("debug-dir")
+		if err := fs.MkdirAll(debugDir); err != nil {
 			return fmt.Errorf("create debug directory: %w", err)
 		}
-		sink = filesink.New(recordFlags.debugDir, fs, renderer)
+		sink = filesink.New(debugDir, fs, renderer)
 	} else {
 		sink = nullsink.New()
 	}
@@ -253,11 +420,11 @@ func runRecord(cmd *cobra.Command, args []string) error {
 	// Create stages
 	layoutStage := layout.NewStage()
 	recordStage := record.New(browser, sink, log, ports.BrowserOptions{
-		Headless:          !recordFlags.noHeadless,
-		ChromePath:        recordFlags.chromePath,
-		Incognito:         !recordFlags.noIncognito,
-		IgnoreHTTPSErrors: recordFlags.ignoreHTTPS,
-		ProxyServer:       recordFlags.proxyServer,
+		Headless:          !c.Bool("no-headless"),
+		ChromePath:        c.String("chrome-path"),
+		Incognito:         !c.Bool("no-incognito"),
+		IgnoreHTTPSErrors: c.Bool("ignore-https-errors"),
+		ProxyServer:       c.String("proxy-server"),
 	})
 	bannerStage := banner.NewStage(htmlCapturer, sink, log)
 	compositeStage := composite.NewStage(renderer, sink, log, workers)
@@ -276,25 +443,25 @@ func runRecord(cmd *cobra.Command, args []string) error {
 	)
 
 	// Build orchestrator config
-	orchConfig := cfg.ToOrchestratorConfig(url, recordFlags.output)
+	orchConfig := cfg.ToOrchestratorConfig(url, c.String("output"))
 
 	// Print start message
-	log.Info(l10n.F("Recording %s (%s preset)...", url, recordFlags.preset))
+	log.Info(l10n.F("Recording %s (%s preset)...", url, c.String("preset")))
 
 	// Run pipeline
 	if err := orch.Run(ctx, orchConfig); err != nil {
 		return err
 	}
 
-	log.Info(l10n.F("Output saved to %s", recordFlags.output))
+	log.Info(l10n.F("Output saved to %s", c.String("output")))
 	return nil
 }
 
 // buildRecordConfig creates a Config from preset and CLI overrides.
-func buildRecordConfig() loadshow.Config {
+func buildRecordConfig(c *cli.Context) loadshow.Config {
 	// Start with device preset
 	var builder *loadshow.ConfigBuilder
-	switch recordFlags.preset {
+	switch c.String("preset") {
 	case "desktop":
 		builder = loadshow.NewConfigBuilder()
 	default: // mobile is default
@@ -302,94 +469,97 @@ func buildRecordConfig() loadshow.Config {
 	}
 
 	// Apply quality preset
-	builder.WithQualityPreset(loadshow.QualityPreset(recordFlags.quality))
+	builder.WithQualityPreset(loadshow.QualityPreset(c.String("quality")))
 
 	// Apply video dimensions
-	if recordFlags.width > 0 {
-		builder.WithWidth(recordFlags.width)
+	if c.Int("width") > 0 {
+		builder.WithWidth(c.Int("width"))
 	}
-	if recordFlags.height > 0 {
-		builder.WithHeight(recordFlags.height)
+	if c.Int("height") > 0 {
+		builder.WithHeight(c.Int("height"))
 	}
 
 	// Apply video output overrides
-	if recordFlags.videoCRF > 0 {
-		builder.WithVideoCRF(recordFlags.videoCRF)
+	if c.Int("video-crf") > 0 {
+		builder.WithVideoCRF(c.Int("video-crf"))
 	}
-	if recordFlags.outroMs > 0 {
-		builder.WithOutroMs(recordFlags.outroMs)
+	if c.Int("outro-ms") > 0 {
+		builder.WithOutroMs(c.Int("outro-ms"))
 	}
 
 	// Apply recording overrides
-	if recordFlags.screencastQuality > 0 {
-		builder.WithScreencastQuality(recordFlags.screencastQuality)
+	if c.Int("screencast-quality") > 0 {
+		builder.WithScreencastQuality(c.Int("screencast-quality"))
 	}
-	if recordFlags.viewportWidth > 0 {
-		builder.WithViewportWidth(recordFlags.viewportWidth)
+	if c.Int("viewport-width") > 0 {
+		builder.WithViewportWidth(c.Int("viewport-width"))
 	}
 
 	// Apply layout overrides
-	if recordFlags.columns > 0 {
-		builder.WithColumns(recordFlags.columns)
+	if c.Int("columns") > 0 {
+		builder.WithColumns(c.Int("columns"))
 	}
-	if recordFlags.margin > 0 {
-		builder.WithMargin(recordFlags.margin)
+	if c.Int("margin") > 0 {
+		builder.WithMargin(c.Int("margin"))
 	}
-	if recordFlags.gap > 0 {
-		builder.WithGap(recordFlags.gap)
+	if c.Int("gap") > 0 {
+		builder.WithGap(c.Int("gap"))
 	}
-	if recordFlags.indent > 0 {
-		builder.WithIndent(recordFlags.indent)
+	if c.Int("indent") > 0 {
+		builder.WithIndent(c.Int("indent"))
 	}
-	if recordFlags.outdent > 0 {
-		builder.WithOutdent(recordFlags.outdent)
+	if c.Int("outdent") > 0 {
+		builder.WithOutdent(c.Int("outdent"))
 	}
 
 	// Apply style overrides
-	if recordFlags.backgroundColor != "" {
-		builder.WithBackgroundColor(config.ParseColor(recordFlags.backgroundColor))
+	if c.String("background-color") != "" {
+		builder.WithBackgroundColor(config.ParseColor(c.String("background-color")))
 	}
-	if recordFlags.borderColor != "" {
-		builder.WithBorderColor(config.ParseColor(recordFlags.borderColor))
+	if c.String("border-color") != "" {
+		builder.WithBorderColor(config.ParseColor(c.String("border-color")))
 	}
-	if recordFlags.borderWidth > 0 {
-		builder.WithBorderWidth(recordFlags.borderWidth)
+	if c.Int("border-width") > 0 {
+		builder.WithBorderWidth(c.Int("border-width"))
 	}
 
 	// Apply network throttling (convert Mbps to bytes/sec)
-	if recordFlags.downloadMbps > 0 {
-		builder.WithDownloadSpeed(loadshow.MbpsToBytes(recordFlags.downloadMbps))
+	if c.Float64("download-mbps") > 0 {
+		builder.WithDownloadSpeed(loadshow.MbpsToBytes(c.Float64("download-mbps")))
 	}
-	if recordFlags.uploadMbps > 0 {
-		builder.WithUploadSpeed(loadshow.MbpsToBytes(recordFlags.uploadMbps))
+	if c.Float64("upload-mbps") > 0 {
+		builder.WithUploadSpeed(loadshow.MbpsToBytes(c.Float64("upload-mbps")))
 	}
 
 	// Apply CPU throttling
-	if recordFlags.cpuThrottling > 0 {
-		builder.WithCPUThrottling(recordFlags.cpuThrottling)
+	if c.Float64("cpu-throttling") > 0 {
+		builder.WithCPUThrottling(c.Float64("cpu-throttling"))
 	}
 
 	// Apply banner options
-	if recordFlags.credit != "" {
-		builder.WithCredit(recordFlags.credit)
+	if c.String("credit") != "" {
+		builder.WithCredit(c.String("credit"))
 	}
 
 	// Apply browser options
-	if recordFlags.ignoreHTTPS {
+	if c.Bool("ignore-https-errors") {
 		builder.WithIgnoreHTTPSErrors(true)
 	}
-	if recordFlags.proxyServer != "" {
-		builder.WithProxyServer(recordFlags.proxyServer)
+	if c.String("proxy-server") != "" {
+		builder.WithProxyServer(c.String("proxy-server"))
 	}
 
 	return builder.Build()
 }
 
-func runJuxtapose(cmd *cobra.Command, args []string) error {
-	left := args[0]
-	right := args[1]
+func runJuxtapose(c *cli.Context) error {
+	if c.NArg() < 2 {
+		return errors.New(l10n.T("Two video arguments are required"))
+	}
+	left := c.Args().Get(0)
+	right := c.Args().Get(1)
 
 	fmt.Println(l10n.T("Juxtapose command not yet implemented."))
-	fmt.Println(l10n.F("Would create comparison from %s and %s to %s", left, right, juxtaposeFlags.output))
+	fmt.Println(l10n.F("Would create comparison from %s and %s to %s", left, right, c.String("output")))
 	return nil
 }
