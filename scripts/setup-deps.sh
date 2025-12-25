@@ -73,7 +73,7 @@ setup_linux() {
     sudo apt-get update
 
     if [ "$STATIC" = true ]; then
-        sudo apt-get install -y cmake ninja-build pkg-config musl-tools git
+        sudo apt-get install -y cmake ninja-build pkg-config musl-tools git nasm
         build_libaom_static "/usr/local/musl" "musl-gcc"
     else
         sudo apt-get install -y libaom-dev pkg-config
@@ -86,6 +86,7 @@ setup_darwin() {
     brew install cmake ninja pkg-config
 
     if [ "$STATIC" = true ]; then
+        brew install nasm
         build_libaom_static "/usr/local"
     else
         brew install aom
@@ -102,7 +103,8 @@ setup_windows() {
             mingw-w64-ucrt-x86_64-ninja \
             mingw-w64-ucrt-x86_64-gcc \
             mingw-w64-ucrt-x86_64-pkg-config \
-            mingw-w64-ucrt-x86_64-curl
+            mingw-w64-ucrt-x86_64-curl \
+            mingw-w64-ucrt-x86_64-nasm
         build_libaom_static "/ucrt64"
     else
         pacman -S --noconfirm --needed \
