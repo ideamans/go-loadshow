@@ -32,6 +32,7 @@ echo "Static build: $STATIC"
 build_libaom_static() {
     local install_prefix=$1
     local cc=${2:-gcc}
+    local extra_cmake_args=${3:-}
 
     echo "Building libaom ${LIBAOM_VERSION} from source..."
 
@@ -53,7 +54,12 @@ build_libaom_static() {
         -DENABLE_SHARED=OFF \
         -DCONFIG_AV1_ENCODER=1 \
         -DCONFIG_AV1_DECODER=1 \
-        -DCMAKE_INSTALL_PREFIX="${install_prefix}"
+        -DENABLE_EXAMPLES=OFF \
+        -DENABLE_TESTS=OFF \
+        -DENABLE_TOOLS=OFF \
+        -DENABLE_DOCS=OFF \
+        -DCMAKE_INSTALL_PREFIX="${install_prefix}" \
+        $extra_cmake_args
 
     ninja
 
@@ -103,9 +109,9 @@ setup_windows() {
             mingw-w64-ucrt-x86_64-ninja \
             mingw-w64-ucrt-x86_64-gcc \
             mingw-w64-ucrt-x86_64-pkg-config \
-            mingw-w64-ucrt-x86_64-curl \
-            mingw-w64-ucrt-x86_64-nasm
-        build_libaom_static "/ucrt64"
+            mingw-w64-ucrt-x86_64-curl
+        # Use generic CPU to avoid nasm version issues on Windows
+        build_libaom_static "/ucrt64" "gcc" "-DAOM_TARGET_CPU=generic"
     else
         pacman -S --noconfirm --needed \
             mingw-w64-ucrt-x86_64-gcc \
