@@ -4,17 +4,17 @@ import (
 	"context"
 	"os"
 	"runtime"
-	"strings"
 	"testing"
 
 	"github.com/user/loadshow/pkg/ports"
 )
 
-func TestBrowser_Launch_ChromeNotFound(t *testing.T) {
+func TestBrowser_Launch_AutoInstallChromium(t *testing.T) {
+	// This test verifies that when Chrome is not found in system paths,
+	// it gets automatically installed via Playwright and launch succeeds.
 	// This test only works on Linux where Chrome paths are searched via PATH
-	// On macOS/Windows, absolute paths are checked which may find Chrome
 	if runtime.GOOS != "linux" {
-		t.Skip("Chrome not found test only reliable on Linux")
+		t.Skip("Auto-install test only reliable on Linux")
 	}
 
 	// Save and clear environment
@@ -32,19 +32,15 @@ func TestBrowser_Launch_ChromeNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	// No explicit path, no CHROME_PATH, no Chrome in PATH
+	// Playwright should auto-install Chromium
 	err := browser.Launch(ctx, ports.BrowserOptions{
 		Headless: true,
 	})
 
-	if err == nil {
-		t.Error("expected error when Chrome is not found")
-		browser.Close()
-		return
+	if err != nil {
+		t.Fatalf("expected auto-install to succeed, got error: %v", err)
 	}
-
-	if !strings.Contains(err.Error(), "chrome not found") {
-		t.Errorf("expected 'chrome not found' error, got: %v", err)
-	}
+	defer browser.Close()
 }
 
 func TestBrowser_Launch_WithExplicitPath(t *testing.T) {
