@@ -99,10 +99,9 @@ jobs:
           - os: linux
             arch: amd64
             runner: ubuntu-latest
-          # Linux ARM64 E2E skipped due to Chromium compatibility issues with banner generation
-          # - os: linux
-          #   arch: arm64
-          #   runner: ubuntu-24.04-arm
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
           - os: darwin
             arch: arm64
             runner: macos-14

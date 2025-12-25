@@ -4,11 +4,10 @@ package capturehtml
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"image"
 	"image/png"
-	"os"
-	"path/filepath"
 
 	"github.com/chromedp/chromedp"
 
@@ -37,12 +36,8 @@ func (c *Capturer) CaptureElement(ctx context.Context, html string) (image.Image
 }
 
 func (c *Capturer) captureWithOptions(ctx context.Context, html string, elementOnly bool) (image.Image, error) {
-	// Write HTML to a temporary file
-	tmpFile := filepath.Join(os.TempDir(), fmt.Sprintf("capturehtml_%d.html", os.Getpid()))
-	if err := os.WriteFile(tmpFile, []byte(html), 0644); err != nil {
-		return nil, fmt.Errorf("write temp file: %w", err)
-	}
-	defer os.Remove(tmpFile)
+	// Use data URL to avoid file system access issues (e.g., snap Chromium restrictions)
+	dataURL := "data:text/html;base64," + base64.StdEncoding.EncodeToString([]byte(html))
 
 	// Create allocator with headless options (matching chromebrowser)
 	chromedpOpts := chromedp.DefaultExecAllocatorOptions[:]
@@ -66,12 +61,10 @@ func (c *Capturer) captureWithOptions(ctx context.Context, html string, elementO
 	browserCtx, browserCancel := chromedp.NewContext(allocCtx)
 	defer browserCancel()
 
-	fileURL := "file://" + tmpFile
-
 	// Capture screenshot using CaptureScreenshot for the actual rendered content
 	var buf []byte
 	if err := chromedp.Run(browserCtx,
-		chromedp.Navigate(fileURL),
+		chromedp.Navigate(dataURL),
 		chromedp.CaptureScreenshot(&buf),
 	); err != nil {
 		return nil, fmt.Errorf("capture screenshot: %w", err)
@@ -90,12 +83,8 @@ func (c *Capturer) captureWithOptions(ctx context.Context, html string, elementO
 
 // CaptureHTMLWithViewport renders HTML at a specific viewport size.
 func (c *Capturer) CaptureHTMLWithViewport(ctx context.Context, html string, width, height int) (image.Image, error) {
-	// Write HTML to a temporary file
-	tmpFile := filepath.Join(os.TempDir(), fmt.Sprintf("capturehtml_%d.html", os.Getpid()))
-	if err := os.WriteFile(tmpFile, []byte(html), 0644); err != nil {
-		return nil, fmt.Errorf("write temp file: %w", err)
-	}
-	defer os.Remove(tmpFile)
+	// Use data URL to avoid file system access issues (e.g., snap Chromium restrictions)
+	dataURL := "data:text/html;base64," + base64.StdEncoding.EncodeToString([]byte(html))
 
 	// Create allocator with sandbox-disabling flags for CI/container environments
 	chromedpOpts := chromedp.DefaultExecAllocatorOptions[:]
@@ -118,14 +107,12 @@ func (c *Capturer) CaptureHTMLWithViewport(ctx context.Context, html string, wid
 	browserCtx, browserCancel := chromedp.NewContext(allocCtx)
 	defer browserCancel()
 
-	fileURL := "file://" + tmpFile
-
 	// Navigate and get body dimensions
 	var bodyWidth, bodyHeight float64
 	var buf []byte
 	if err := chromedp.Run(browserCtx,
 		chromedp.EmulateViewport(int64(width), int64(height)),
-		chromedp.Navigate(fileURL),
+		chromedp.Navigate(dataURL),
 		chromedp.Evaluate(`document.body.getBoundingClientRect().width`, &bodyWidth),
 		chromedp.Evaluate(`document.body.getBoundingClientRect().height`, &bodyHeight),
 		chromedp.FullScreenshot(&buf, 100),
