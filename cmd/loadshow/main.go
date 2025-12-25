@@ -4,14 +4,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"image/color"
 	"os"
 	"os/signal"
 	"runtime"
 	"syscall"
 
-	"github.com/alecthomas/kong"
 	"github.com/ideamans/go-l10n"
+	"github.com/spf13/cobra"
 
 	"github.com/user/loadshow/pkg/adapters/av1encoder"
 	"github.com/user/loadshow/pkg/adapters/capturehtml"
@@ -32,112 +31,142 @@ import (
 	"github.com/user/loadshow/pkg/stages/record"
 )
 
-// CLI defines the command-line interface with subcommands.
-type CLI struct {
-	Record    RecordCmd    `cmd:"" help:"Record a web page loading as MP4 video."`
-	Juxtapose JuxtaposeCmd `cmd:"" help:"Create a side-by-side comparison video."`
-	Version   VersionCmd   `cmd:"" help:"Show version information."`
-}
-
-// RecordCmd defines the record subcommand.
-type RecordCmd struct {
-	// Required arguments
-	URL    string `arg:"" help:"URL of the page to record."`
-	Output string `short:"o" required:"" help:"Output MP4 file path."`
-
-	// Preset
-	Preset string `short:"p" default:"desktop" enum:"desktop,mobile" help:"Preset configuration (desktop or mobile)."`
-
-	// Video quality preset
-	VideoQuality string `short:"Q" default:"medium" enum:"low,medium,high" help:"Video quality preset (low, medium, high)."`
-
-	// Video dimensions
-	Width  *int `short:"W" help:"Output video width (default: 512)."`
-	Height *int `short:"H" help:"Output video height (default: 640)."`
-
-	// Layout options (override preset)
-	ViewportWidth *int `help:"Browser viewport width (min: 500)."`
-	Columns       *int `short:"c" help:"Number of columns (min: 1)."`
-	Margin        *int `help:"Margin around the canvas in pixels."`
-	Gap           *int `help:"Gap between columns in pixels."`
-	Indent        *int `help:"Additional top margin for columns 2+."`
-	Outdent       *int `help:"Additional bottom margin for column 1."`
-
-	// Style options
-	BackgroundColor *string `help:"Background color (hex, e.g., #dcdcdc)."`
-	BorderColor     *string `help:"Border color (hex, e.g., #b4b4b4)."`
-	BorderWidth     *int    `help:"Border width in pixels."`
-
-	// Encoding options
-	Quality *int `short:"q" help:"Video quality (CRF 0-63, lower is better)."`
-	OutroMs *int `help:"Duration to hold final frame in milliseconds."`
-
-	// Banner options
-	Credit *string `help:"Custom text shown in banner (default: loadshow)."`
-
-	// Network throttling
-	DownloadSpeed *int `help:"Download speed in bytes/sec (0 = unlimited)."`
-	UploadSpeed   *int `help:"Upload speed in bytes/sec (0 = unlimited)."`
-
-	// CPU throttling
-	CPUThrottling *float64 `help:"CPU slowdown factor (1.0 = no throttling, 4.0 = 4x slower)."`
-
-	// Debug options
-	Debug    bool   `short:"d" help:"Enable debug output."`
-	DebugDir string `default:"./debug" help:"Directory for debug output."`
-
-	// Browser options
-	NoHeadless        bool   `help:"Run browser in non-headless mode."`
-	ChromePath        string `help:"Path to Chrome executable (falls back to CHROME_PATH env, then system default)."`
-	IgnoreHTTPSErrors bool   `help:"Ignore HTTPS certificate errors."`
-	ProxyServer       string `help:"HTTP proxy server (e.g., http://proxy:8080)."`
-	NoIncognito       bool   `help:"Disable incognito mode (incognito is enabled by default)."`
-
-	// Logging options
-	LogLevel string `short:"l" default:"info" enum:"debug,info,warn,error" help:"Log level (debug, info, warn, error)."`
-	Quiet    bool   `help:"Suppress all log output."`
-}
-
-// JuxtaposeCmd defines the juxtapose subcommand.
-type JuxtaposeCmd struct {
-	// TODO: Implement juxtapose command
-	Left   string `arg:"" help:"Left video file path."`
-	Right  string `arg:"" help:"Right video file path."`
-	Output string `short:"o" required:"" help:"Output MP4 file path."`
-
-	// Video quality preset
-	VideoQuality string `short:"Q" default:"medium" enum:"low,medium,high" help:"Video quality preset (low, medium, high)."`
-}
-
-// VersionCmd shows version information.
-type VersionCmd struct{}
-
 var version = "dev"
 
-func main() {
-	cli := CLI{}
-
-	ctx := kong.Parse(&cli,
-		kong.Name("loadshow"),
-		kong.Description("Create page load videos for web performance visualization."),
-		kong.UsageOnError(),
-	)
-
-	err := ctx.Run()
-	ctx.FatalIfErrorf(err)
+// Record command flags
+var recordFlags struct {
+	output          string
+	preset          string
+	videoQuality    string
+	width           int
+	height          int
+	viewportWidth   int
+	columns         int
+	margin          int
+	gap             int
+	indent          int
+	outdent         int
+	backgroundColor string
+	borderColor     string
+	borderWidth     int
+	quality         int
+	outroMs         int
+	credit          string
+	downloadSpeed   int
+	uploadSpeed     int
+	cpuThrottling   float64
+	debug           bool
+	debugDir        string
+	noHeadless      bool
+	chromePath      string
+	ignoreHTTPS     bool
+	proxyServer     string
+	noIncognito     bool
+	logLevel        string
+	quiet           bool
 }
 
-// Run executes the record command.
-func (cmd *RecordCmd) Run() error {
+// Juxtapose command flags
+var juxtaposeFlags struct {
+	output       string
+	videoQuality string
+}
+
+func main() {
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+var rootCmd = &cobra.Command{
+	Use:   "loadshow",
+	Short: l10n.T("Create page load videos for web performance visualization"),
+	Long:  l10n.T("loadshow creates videos that visualize web page loading performance."),
+}
+
+var recordCmd = &cobra.Command{
+	Use:   "record <url>",
+	Short: l10n.T("Record a web page loading as MP4 video"),
+	Long:  l10n.T("Record the loading process of a web page and save it as an MP4 video."),
+	Args:  cobra.ExactArgs(1),
+	RunE:  runRecord,
+}
+
+var juxtaposeCmd = &cobra.Command{
+	Use:   "juxtapose <left> <right>",
+	Short: l10n.T("Create a side-by-side comparison video"),
+	Long:  l10n.T("Create a side-by-side comparison video from two input videos."),
+	Args:  cobra.ExactArgs(2),
+	RunE:  runJuxtapose,
+}
+
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: l10n.T("Show version information"),
+	Long:  l10n.T("Display the version of loadshow."),
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println(l10n.F("loadshow (Go) version %s", version))
+	},
+}
+
+func init() {
+	// Add subcommands
+	rootCmd.AddCommand(recordCmd)
+	rootCmd.AddCommand(juxtaposeCmd)
+	rootCmd.AddCommand(versionCmd)
+
+	// Record command flags
+	recordCmd.Flags().StringVarP(&recordFlags.output, "output", "o", "", l10n.T("Output MP4 file path (required)"))
+	recordCmd.Flags().StringVarP(&recordFlags.preset, "preset", "p", "desktop", l10n.T("Preset configuration (desktop, mobile)"))
+	recordCmd.Flags().StringVarP(&recordFlags.videoQuality, "video-quality", "Q", "medium", l10n.T("Video quality preset (low, medium, high)"))
+	recordCmd.Flags().IntVarP(&recordFlags.width, "width", "W", 0, l10n.T("Output video width (default: 512)"))
+	recordCmd.Flags().IntVarP(&recordFlags.height, "height", "H", 0, l10n.T("Output video height (default: 640)"))
+	recordCmd.Flags().IntVar(&recordFlags.viewportWidth, "viewport-width", 0, l10n.T("Browser viewport width (min: 500)"))
+	recordCmd.Flags().IntVarP(&recordFlags.columns, "columns", "c", 0, l10n.T("Number of columns (min: 1)"))
+	recordCmd.Flags().IntVar(&recordFlags.margin, "margin", 0, l10n.T("Margin around the canvas in pixels"))
+	recordCmd.Flags().IntVar(&recordFlags.gap, "gap", 0, l10n.T("Gap between columns in pixels"))
+	recordCmd.Flags().IntVar(&recordFlags.indent, "indent", 0, l10n.T("Additional top margin for columns 2+"))
+	recordCmd.Flags().IntVar(&recordFlags.outdent, "outdent", 0, l10n.T("Additional bottom margin for column 1"))
+	recordCmd.Flags().StringVar(&recordFlags.backgroundColor, "background-color", "", l10n.T("Background color (hex, e.g., #dcdcdc)"))
+	recordCmd.Flags().StringVar(&recordFlags.borderColor, "border-color", "", l10n.T("Border color (hex, e.g., #b4b4b4)"))
+	recordCmd.Flags().IntVar(&recordFlags.borderWidth, "border-width", 0, l10n.T("Border width in pixels"))
+	recordCmd.Flags().IntVarP(&recordFlags.quality, "quality", "q", 0, l10n.T("Video quality (CRF 0-63, lower is better)"))
+	recordCmd.Flags().IntVar(&recordFlags.outroMs, "outro-ms", 0, l10n.T("Duration to hold final frame in milliseconds"))
+	recordCmd.Flags().StringVar(&recordFlags.credit, "credit", "", l10n.T("Custom text shown in banner (default: loadshow)"))
+	recordCmd.Flags().IntVar(&recordFlags.downloadSpeed, "download-speed", 0, l10n.T("Download speed in bytes/sec (0 = unlimited)"))
+	recordCmd.Flags().IntVar(&recordFlags.uploadSpeed, "upload-speed", 0, l10n.T("Upload speed in bytes/sec (0 = unlimited)"))
+	recordCmd.Flags().Float64Var(&recordFlags.cpuThrottling, "cpu-throttling", 0, l10n.T("CPU slowdown factor (1.0 = no throttling, 4.0 = 4x slower)"))
+	recordCmd.Flags().BoolVarP(&recordFlags.debug, "debug", "d", false, l10n.T("Enable debug output"))
+	recordCmd.Flags().StringVar(&recordFlags.debugDir, "debug-dir", "./debug", l10n.T("Directory for debug output"))
+	recordCmd.Flags().BoolVar(&recordFlags.noHeadless, "no-headless", false, l10n.T("Run browser in non-headless mode"))
+	recordCmd.Flags().StringVar(&recordFlags.chromePath, "chrome-path", "", l10n.T("Path to Chrome executable"))
+	recordCmd.Flags().BoolVar(&recordFlags.ignoreHTTPS, "ignore-https-errors", false, l10n.T("Ignore HTTPS certificate errors"))
+	recordCmd.Flags().StringVar(&recordFlags.proxyServer, "proxy-server", "", l10n.T("HTTP proxy server (e.g., http://proxy:8080)"))
+	recordCmd.Flags().BoolVar(&recordFlags.noIncognito, "no-incognito", false, l10n.T("Disable incognito mode"))
+	recordCmd.Flags().StringVarP(&recordFlags.logLevel, "log-level", "l", "info", l10n.T("Log level (debug, info, warn, error)"))
+	recordCmd.Flags().BoolVar(&recordFlags.quiet, "quiet", false, l10n.T("Suppress all log output"))
+
+	recordCmd.MarkFlagRequired("output")
+
+	// Juxtapose command flags
+	juxtaposeCmd.Flags().StringVarP(&juxtaposeFlags.output, "output", "o", "", l10n.T("Output MP4 file path (required)"))
+	juxtaposeCmd.Flags().StringVarP(&juxtaposeFlags.videoQuality, "video-quality", "Q", "medium", l10n.T("Video quality preset (low, medium, high)"))
+
+	juxtaposeCmd.MarkFlagRequired("output")
+}
+
+func runRecord(cmd *cobra.Command, args []string) error {
+	url := args[0]
+
 	// Build config from preset and overrides
-	cfg := cmd.buildConfig()
+	cfg := buildRecordConfig()
 
 	// Create logger
 	var log ports.Logger
-	if cmd.Quiet {
+	if recordFlags.quiet {
 		log = logger.NewNoop()
 	} else {
-		log = logger.NewConsole(ports.ParseLogLevel(cmd.LogLevel))
+		log = logger.NewConsole(ports.ParseLogLevel(recordFlags.logLevel))
 	}
 
 	// Setup context with cancellation
@@ -164,11 +193,11 @@ func (cmd *RecordCmd) Run() error {
 
 	// Create debug sink
 	var sink ports.DebugSink
-	if cmd.Debug {
-		if err := fs.MkdirAll(cmd.DebugDir); err != nil {
+	if recordFlags.debug {
+		if err := fs.MkdirAll(recordFlags.debugDir); err != nil {
 			return fmt.Errorf("create debug directory: %w", err)
 		}
-		sink = filesink.New(cmd.DebugDir, fs, renderer)
+		sink = filesink.New(recordFlags.debugDir, fs, renderer)
 	} else {
 		sink = nullsink.New()
 	}
@@ -179,11 +208,11 @@ func (cmd *RecordCmd) Run() error {
 	// Create stages
 	layoutStage := layout.NewStage()
 	recordStage := record.New(browser, sink, log, ports.BrowserOptions{
-		Headless:          !cmd.NoHeadless,
-		ChromePath:        cmd.ChromePath,
-		Incognito:         !cmd.NoIncognito,
-		IgnoreHTTPSErrors: cmd.IgnoreHTTPSErrors,
-		ProxyServer:       cmd.ProxyServer,
+		Headless:          !recordFlags.noHeadless,
+		ChromePath:        recordFlags.chromePath,
+		Incognito:         !recordFlags.noIncognito,
+		IgnoreHTTPSErrors: recordFlags.ignoreHTTPS,
+		ProxyServer:       recordFlags.proxyServer,
 	})
 	bannerStage := banner.NewStage(htmlCapturer, sink, log)
 	compositeStage := composite.NewStage(renderer, sink, log, workers)
@@ -202,25 +231,25 @@ func (cmd *RecordCmd) Run() error {
 	)
 
 	// Build orchestrator config
-	orchConfig := cfg.ToOrchestratorConfig(cmd.URL, cmd.Output)
+	orchConfig := cfg.ToOrchestratorConfig(url, recordFlags.output)
 
 	// Print start message
-	log.Info(l10n.F("Recording %s (%s preset)...", cmd.URL, cmd.Preset))
+	log.Info(l10n.F("Recording %s (%s preset)...", url, recordFlags.preset))
 
 	// Run pipeline
 	if err := orch.Run(ctx, orchConfig); err != nil {
 		return err
 	}
 
-	log.Info(l10n.F("Output saved to %s", cmd.Output))
+	log.Info(l10n.F("Output saved to %s", recordFlags.output))
 	return nil
 }
 
-// buildConfig creates a Config from preset and CLI overrides.
-func (cmd *RecordCmd) buildConfig() loadshow.Config {
+// buildRecordConfig creates a Config from preset and CLI overrides.
+func buildRecordConfig() loadshow.Config {
 	// Start with preset
 	var builder *loadshow.ConfigBuilder
-	switch cmd.Preset {
+	switch recordFlags.preset {
 	case "mobile":
 		builder = loadshow.NewMobileConfigBuilder()
 	default:
@@ -228,88 +257,79 @@ func (cmd *RecordCmd) buildConfig() loadshow.Config {
 	}
 
 	// Apply video quality preset
-	builder.WithVideoQualityPreset(loadshow.VideoQualityPreset(cmd.VideoQuality))
+	builder.WithVideoQualityPreset(loadshow.VideoQualityPreset(recordFlags.videoQuality))
 
 	// Apply video dimensions
-	if cmd.Width != nil {
-		builder.WithWidth(*cmd.Width)
+	if recordFlags.width > 0 {
+		builder.WithWidth(recordFlags.width)
 	}
-	if cmd.Height != nil {
-		builder.WithHeight(*cmd.Height)
+	if recordFlags.height > 0 {
+		builder.WithHeight(recordFlags.height)
 	}
 
 	// Apply overrides
-	if cmd.ViewportWidth != nil {
-		builder.WithViewportWidth(*cmd.ViewportWidth)
+	if recordFlags.viewportWidth > 0 {
+		builder.WithViewportWidth(recordFlags.viewportWidth)
 	}
-	if cmd.Columns != nil {
-		builder.WithColumns(*cmd.Columns)
+	if recordFlags.columns > 0 {
+		builder.WithColumns(recordFlags.columns)
 	}
-	if cmd.Margin != nil {
-		builder.WithMargin(*cmd.Margin)
+	if recordFlags.margin > 0 {
+		builder.WithMargin(recordFlags.margin)
 	}
-	if cmd.Gap != nil {
-		builder.WithGap(*cmd.Gap)
+	if recordFlags.gap > 0 {
+		builder.WithGap(recordFlags.gap)
 	}
-	if cmd.Indent != nil {
-		builder.WithIndent(*cmd.Indent)
+	if recordFlags.indent > 0 {
+		builder.WithIndent(recordFlags.indent)
 	}
-	if cmd.Outdent != nil {
-		builder.WithOutdent(*cmd.Outdent)
+	if recordFlags.outdent > 0 {
+		builder.WithOutdent(recordFlags.outdent)
 	}
-	if cmd.BackgroundColor != nil {
-		builder.WithBackgroundColor(config.ParseColor(*cmd.BackgroundColor))
+	if recordFlags.backgroundColor != "" {
+		builder.WithBackgroundColor(config.ParseColor(recordFlags.backgroundColor))
 	}
-	if cmd.BorderColor != nil {
-		builder.WithBorderColor(config.ParseColor(*cmd.BorderColor))
+	if recordFlags.borderColor != "" {
+		builder.WithBorderColor(config.ParseColor(recordFlags.borderColor))
 	}
-	if cmd.BorderWidth != nil {
-		builder.WithBorderWidth(*cmd.BorderWidth)
+	if recordFlags.borderWidth > 0 {
+		builder.WithBorderWidth(recordFlags.borderWidth)
 	}
-	if cmd.Quality != nil {
-		builder.WithQuality(*cmd.Quality)
+	if recordFlags.quality > 0 {
+		builder.WithQuality(recordFlags.quality)
 	}
-	if cmd.OutroMs != nil {
-		builder.WithOutroMs(*cmd.OutroMs)
+	if recordFlags.outroMs > 0 {
+		builder.WithOutroMs(recordFlags.outroMs)
 	}
-	if cmd.Credit != nil {
-		builder.WithCredit(*cmd.Credit)
+	if recordFlags.credit != "" {
+		builder.WithCredit(recordFlags.credit)
 	}
-	if cmd.DownloadSpeed != nil {
-		builder.WithDownloadSpeed(*cmd.DownloadSpeed)
+	if recordFlags.downloadSpeed > 0 {
+		builder.WithDownloadSpeed(recordFlags.downloadSpeed)
 	}
-	if cmd.UploadSpeed != nil {
-		builder.WithUploadSpeed(*cmd.UploadSpeed)
+	if recordFlags.uploadSpeed > 0 {
+		builder.WithUploadSpeed(recordFlags.uploadSpeed)
 	}
-	if cmd.CPUThrottling != nil {
-		builder.WithCPUThrottling(*cmd.CPUThrottling)
+	if recordFlags.cpuThrottling > 0 {
+		builder.WithCPUThrottling(recordFlags.cpuThrottling)
 	}
 
 	// Apply browser options
-	if cmd.IgnoreHTTPSErrors {
+	if recordFlags.ignoreHTTPS {
 		builder.WithIgnoreHTTPSErrors(true)
 	}
-	if cmd.ProxyServer != "" {
-		builder.WithProxyServer(cmd.ProxyServer)
+	if recordFlags.proxyServer != "" {
+		builder.WithProxyServer(recordFlags.proxyServer)
 	}
 
 	return builder.Build()
 }
 
-// Run executes the juxtapose command.
-func (cmd *JuxtaposeCmd) Run() error {
+func runJuxtapose(cmd *cobra.Command, args []string) error {
+	left := args[0]
+	right := args[1]
+
 	fmt.Println(l10n.T("Juxtapose command not yet implemented."))
-	fmt.Println(l10n.F("Would create comparison from %s and %s to %s", cmd.Left, cmd.Right, cmd.Output))
+	fmt.Println(l10n.F("Would create comparison from %s and %s to %s", left, right, juxtaposeFlags.output))
 	return nil
-}
-
-// Run executes the version command.
-func (cmd *VersionCmd) Run() error {
-	fmt.Println(l10n.F("loadshow (Go) version %s", version))
-	return nil
-}
-
-// parseHexColor parses a hex color string to color.Color.
-func parseHexColor(hex string) color.Color {
-	return config.ParseColor(hex)
 }
