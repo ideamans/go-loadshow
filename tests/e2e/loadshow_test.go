@@ -1,4 +1,5 @@
 // Package e2e contains end-to-end tests for the loadshow CLI.
+// This package has no CGO dependencies so it can run with pre-built binaries.
 package e2e
 
 import (
@@ -9,8 +10,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-
-	"github.com/user/loadshow/pkg/adapters/av1decoder"
 )
 
 const testURL = "https://dummy-ec-site.ideamans.com/"
@@ -105,18 +104,7 @@ func TestRecordCommand(t *testing.T) {
 		t.Error("Invalid MP4 file")
 	}
 
-	// Extract and verify frames
-	frames, err := av1decoder.ExtractFrames(videoData)
-	if err != nil {
-		t.Fatalf("Failed to extract frames: %v", err)
-	}
-
-	// Should have at least a few frames
-	if len(frames) < 3 {
-		t.Errorf("Expected at least 3 frames, got %d", len(frames))
-	}
-
-	t.Logf("Video created: %d bytes, %d frames", info.Size(), len(frames))
+	t.Logf("Video created: %d bytes", info.Size())
 }
 
 // TestRecordDesktopPreset tests the desktop preset
@@ -222,17 +210,12 @@ func TestRecordWithCustomDimensions(t *testing.T) {
 
 	t.Logf("Custom dimensions video: %d bytes", info.Size())
 
-	// Decode and check dimensions
+	// Verify MP4 file is valid
 	videoData, err := os.ReadFile(tmpFile.Name())
 	if err != nil {
 		t.Fatalf("Failed to read output: %v", err)
 	}
 
-	reader := av1decoder.NewMP4Reader()
-	defer reader.Close()
-
-	// We can't easily check video dimensions without full decode
-	// Just verify the file is valid
 	if len(videoData) < 8 || string(videoData[4:8]) != "ftyp" {
 		t.Error("Invalid MP4 file")
 	}
