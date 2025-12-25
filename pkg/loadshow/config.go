@@ -8,6 +8,42 @@ import (
 	"github.com/user/loadshow/pkg/ports"
 )
 
+// VideoQualityPreset represents a video quality preset name.
+type VideoQualityPreset string
+
+const (
+	VideoQualityLow    VideoQualityPreset = "low"
+	VideoQualityMedium VideoQualityPreset = "medium"
+	VideoQualityHigh   VideoQualityPreset = "high"
+)
+
+// VideoQualitySettings contains quality parameters for video encoding and capture.
+type VideoQualitySettings struct {
+	EncodeQuality     int // MP4 CRF value (0-63, lower is better)
+	ScreencastQuality int // JPEG quality for screencast (0-100)
+}
+
+// GetVideoQualitySettings returns quality settings for the given preset.
+func GetVideoQualitySettings(preset VideoQualityPreset) VideoQualitySettings {
+	switch preset {
+	case VideoQualityLow:
+		return VideoQualitySettings{
+			EncodeQuality:     35,
+			ScreencastQuality: 70,
+		}
+	case VideoQualityHigh:
+		return VideoQualitySettings{
+			EncodeQuality:     15,
+			ScreencastQuality: 90,
+		}
+	default: // medium
+		return VideoQualitySettings{
+			EncodeQuality:     25,
+			ScreencastQuality: 80,
+		}
+	}
+}
+
 // Config represents the configuration for loadshow video generation.
 type Config struct {
 	// Video size
@@ -28,8 +64,9 @@ type Config struct {
 	BorderWidth     int         // Border width in pixels
 
 	// Encoding
-	Quality int // MP4 quality (CRF 0-63, lower is better)
-	OutroMs int // Duration to hold final frame in milliseconds
+	Quality           int // MP4 quality (CRF 0-63, lower is better)
+	ScreencastQuality int // JPEG quality for screencast (0-100)
+	OutroMs           int // Duration to hold final frame in milliseconds
 
 	// Banner
 	Credit string // Text shown in banner (replaces "loadshow")
@@ -85,9 +122,10 @@ func desktopDefaults() Config {
 		BorderColor:     color.RGBA{R: 180, G: 180, B: 180, A: 255}, // #b4b4b4
 		BorderWidth:     1,
 
-		// Encoding
-		Quality: 30,
-		OutroMs: 2000,
+		// Encoding (medium quality preset)
+		Quality:           25,
+		ScreencastQuality: 80,
+		OutroMs:           2000,
 
 		// Banner
 		Credit: "loadshow",
@@ -121,9 +159,10 @@ func mobileDefaults() Config {
 		BorderColor:     color.RGBA{R: 180, G: 180, B: 180, A: 255}, // #b4b4b4
 		BorderWidth:     1,
 
-		// Encoding
-		Quality: 30,
-		OutroMs: 2000,
+		// Encoding (medium quality preset)
+		Quality:           25,
+		ScreencastQuality: 80,
+		OutroMs:           2000,
 
 		// Banner
 		Credit: "loadshow",
@@ -228,6 +267,20 @@ func (b *ConfigBuilder) WithQuality(quality int) *ConfigBuilder {
 	return b
 }
 
+// WithScreencastQuality sets the JPEG quality for screencast (0-100).
+func (b *ConfigBuilder) WithScreencastQuality(quality int) *ConfigBuilder {
+	b.config.ScreencastQuality = quality
+	return b
+}
+
+// WithVideoQualityPreset applies a video quality preset (low, medium, high).
+func (b *ConfigBuilder) WithVideoQualityPreset(preset VideoQualityPreset) *ConfigBuilder {
+	settings := GetVideoQualitySettings(preset)
+	b.config.Quality = settings.EncodeQuality
+	b.config.ScreencastQuality = settings.ScreencastQuality
+	return b
+}
+
 // WithOutroMs sets the duration to hold the final frame in milliseconds.
 func (b *ConfigBuilder) WithOutroMs(ms int) *ConfigBuilder {
 	b.config.OutroMs = ms
@@ -310,8 +363,9 @@ func (c Config) ToOrchestratorConfig(url, outputPath string) orchestrator.Config
 		BorderColor:     colorToArray(c.BorderColor),
 
 		// Recording
-		ViewportWidth: c.ViewportWidth,
-		TimeoutMs:     30000,
+		ViewportWidth:     c.ViewportWidth,
+		ScreencastQuality: c.ScreencastQuality,
+		TimeoutMs:         30000,
 		NetworkConditions: ports.NetworkConditions{
 			DownloadSpeed: c.DownloadSpeed,
 			UploadSpeed:   c.UploadSpeed,

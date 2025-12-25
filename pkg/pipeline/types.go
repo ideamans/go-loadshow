@@ -96,6 +96,7 @@ type RecordInput struct {
 	URL               string
 	ViewportWidth     int       // Browser viewport width (e.g., 375 for mobile)
 	Screen            Dimension // Target screen dimensions from layout (scroll width/height)
+	ScreencastQuality int       // JPEG quality for screencast (0-100, default: 70)
 	TimeoutMs         int
 	NetworkConditions ports.NetworkConditions
 	CPUThrottling     float64

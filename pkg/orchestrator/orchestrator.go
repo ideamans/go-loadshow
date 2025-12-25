@@ -35,6 +35,7 @@ type Config struct {
 
 	// Recording
 	ViewportWidth     int
+	ScreencastQuality int // JPEG quality for screencast (0-100)
 	TimeoutMs         int
 	NetworkConditions ports.NetworkConditions
 	CPUThrottling     float64
@@ -229,6 +230,7 @@ func (o *Orchestrator) buildRecordInput(config Config, layout pipeline.LayoutRes
 		URL:               config.URL,
 		ViewportWidth:     config.ViewportWidth,      // Browser viewport width (e.g., 375 for mobile)
 		Screen:            layout.Scroll,             // Target screen dimensions from layout
+		ScreencastQuality: config.ScreencastQuality,
 		TimeoutMs:         config.TimeoutMs,
 		NetworkConditions: config.NetworkConditions,
 		CPUThrottling:     config.CPUThrottling,

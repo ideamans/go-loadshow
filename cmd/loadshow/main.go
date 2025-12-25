@@ -48,6 +48,9 @@ type RecordCmd struct {
 	// Preset
 	Preset string `short:"p" default:"desktop" enum:"desktop,mobile" help:"Preset configuration (desktop or mobile)."`
 
+	// Video quality preset
+	VideoQuality string `short:"Q" default:"medium" enum:"low,medium,high" help:"Video quality preset (low, medium, high)."`
+
 	// Video dimensions
 	Width  *int `short:"W" help:"Output video width (default: 512)."`
 	Height *int `short:"H" help:"Output video height (default: 640)."`
@@ -92,7 +95,7 @@ type RecordCmd struct {
 
 	// Logging options
 	LogLevel string `short:"l" default:"info" enum:"debug,info,warn,error" help:"Log level (debug, info, warn, error)."`
-	Quiet    bool   `short:"Q" help:"Suppress all log output."`
+	Quiet    bool   `help:"Suppress all log output."`
 }
 
 // JuxtaposeCmd defines the juxtapose subcommand.
@@ -101,6 +104,9 @@ type JuxtaposeCmd struct {
 	Left   string `arg:"" help:"Left video file path."`
 	Right  string `arg:"" help:"Right video file path."`
 	Output string `short:"o" required:"" help:"Output MP4 file path."`
+
+	// Video quality preset
+	VideoQuality string `short:"Q" default:"medium" enum:"low,medium,high" help:"Video quality preset (low, medium, high)."`
 }
 
 // VersionCmd shows version information.
@@ -220,6 +226,9 @@ func (cmd *RecordCmd) buildConfig() loadshow.Config {
 	default:
 		builder = loadshow.NewConfigBuilder()
 	}
+
+	// Apply video quality preset
+	builder.WithVideoQualityPreset(loadshow.VideoQualityPreset(cmd.VideoQuality))
 
 	// Apply video dimensions
 	if cmd.Width != nil {
