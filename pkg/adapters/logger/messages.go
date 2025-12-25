@@ -20,6 +20,7 @@ func init() {
 		"Setting network conditions: %d ms latency, %d bps down, %d bps up": "ネットワーク条件を設定: %d ms 遅延, %d bps ダウン, %d bps アップ",
 		"Setting CPU throttling: %.1fx slowdown":          "CPUスロットリングを設定: %.1fx 低速化",
 		"Starting screencast":                             "スクリーンキャストを開始",
+		"Starting screencast with JPEG quality %d":        "JPEG品質 %d でスクリーンキャストを開始",
 		"Captured %d frames":                              "%d フレームをキャプチャしました",
 		"Recording completed in %d ms":                    "記録が %d ms で完了しました",
 		"Browser closed":                                  "ブラウザを閉じました",

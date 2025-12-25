@@ -4,6 +4,7 @@ package logger
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ideamans/go-l10n"
 	"github.com/mattn/go-isatty"
@@ -12,11 +13,14 @@ import (
 
 // ANSI color codes
 const (
-	colorReset  = "\033[0m"
-	colorGray   = "\033[90m"
-	colorYellow = "\033[33m"
-	colorRed    = "\033[31m"
-	colorCyan   = "\033[36m"
+	colorReset   = "\033[0m"
+	colorGray    = "\033[90m"
+	colorYellow  = "\033[33m"
+	colorRed     = "\033[31m"
+	colorCyan    = "\033[36m"
+	colorGreen   = "\033[32m"
+	colorMagenta = "\033[35m"
+	colorBold    = "\033[1m"
 )
 
 // ConsoleLogger logs messages to the console with color support.
@@ -77,32 +81,65 @@ func (l *ConsoleLogger) WithComponent(component string) ports.Logger {
 	}
 }
 
+// levelLabel returns the display label for a log level.
+func levelLabel(level ports.LogLevel) string {
+	switch level {
+	case ports.LevelDebug:
+		return "DEBUG"
+	case ports.LevelInfo:
+		return "INFO"
+	case ports.LevelWarn:
+		return "WARN"
+	case ports.LevelError:
+		return "ERROR"
+	default:
+		return "???"
+	}
+}
+
+// levelColor returns the ANSI color code for a log level.
+func levelColor(level ports.LogLevel) string {
+	switch level {
+	case ports.LevelDebug:
+		return colorGray
+	case ports.LevelInfo:
+		return colorGreen
+	case ports.LevelWarn:
+		return colorYellow
+	case ports.LevelError:
+		return colorRed
+	default:
+		return colorReset
+	}
+}
+
 // log outputs a log message with appropriate formatting.
 func (l *ConsoleLogger) log(level ports.LogLevel, msg string, args ...interface{}) {
 	// Translate message using go-l10n
 	translated := l10n.F(msg, args...)
 
-	// Build output line
+	// Get current date and time
+	now := time.Now().Format("2006-01-02 15:04:05")
+
+	// Build output line: [TIME] [LEVEL] [component] message
 	var output string
-	if l.component != "" {
-		if l.color {
-			output = fmt.Sprintf("%s[%s]%s %s", colorCyan, l.component, colorReset, translated)
+	if l.color {
+		// Colorized output
+		timeStr := fmt.Sprintf("%s%s%s", colorGray, now, colorReset)
+		levelStr := fmt.Sprintf("%s%-5s%s", levelColor(level), levelLabel(level), colorReset)
+
+		if l.component != "" {
+			compStr := fmt.Sprintf("%s%s%s", colorCyan, l.component, colorReset)
+			output = fmt.Sprintf("%s %s %s %s", timeStr, levelStr, compStr, translated)
 		} else {
-			output = fmt.Sprintf("[%s] %s", l.component, translated)
+			output = fmt.Sprintf("%s %s %s", timeStr, levelStr, translated)
 		}
 	} else {
-		output = translated
-	}
-
-	// Apply level-specific coloring
-	if l.color {
-		switch level {
-		case ports.LevelDebug:
-			output = colorGray + output + colorReset
-		case ports.LevelWarn:
-			output = colorYellow + output + colorReset
-		case ports.LevelError:
-			output = colorRed + output + colorReset
+		// Plain text output
+		if l.component != "" {
+			output = fmt.Sprintf("%s %-5s %s %s", now, levelLabel(level), l.component, translated)
+		} else {
+			output = fmt.Sprintf("%s %-5s %s", now, levelLabel(level), translated)
 		}
 	}
 
