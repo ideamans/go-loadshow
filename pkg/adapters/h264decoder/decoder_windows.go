@@ -6,7 +6,6 @@ package h264decoder
 #cgo CFLAGS: -DCOBJMACROS
 #cgo LDFLAGS: -lmfplat -lmfuuid -lole32 -lmf -lmfreadwrite -lshlwapi
 
-#define COBJMACROS
 #include <stdint.h>
 #include <windows.h>
 #include <mfapi.h>
@@ -156,18 +155,6 @@ static int mfExtractSPSPPS(unsigned char *data, size_t size,
     return (*sps != NULL && *pps != NULL) ? 0 : -1;
 }
 
-// Parse SPS to get width/height
-static int parseSPSDimensions(unsigned char *sps, size_t spsSize, int *width, int *height) {
-    if (spsSize < 4) return -1;
-
-    // Simplified SPS parsing - just use common defaults
-    // Real implementation would need full SPS parsing
-    *width = 1920;
-    *height = 1080;
-
-    return 0;
-}
-
 static MFH264Decoder* mfCreateDecoder() {
     if (FAILED(initMFDecoder())) {
         return NULL;
@@ -179,25 +166,11 @@ static MFH264Decoder* mfCreateDecoder() {
     return ctx;
 }
 
-static int mfInitializeDecoder(MFH264Decoder *ctx, unsigned char *sps, size_t spsSize,
-                                unsigned char *pps, size_t ppsSize) {
-    if (!ctx || !sps || !pps) return -1;
+static int mfInitializeDecoderWithDimensions(MFH264Decoder *ctx, int width, int height) {
+    if (!ctx || width <= 0 || height <= 0) return -1;
 
-    // Store SPS/PPS
-    if (ctx->sps) free(ctx->sps);
-    if (ctx->pps) free(ctx->pps);
-
-    ctx->sps = (unsigned char*)malloc(spsSize);
-    ctx->pps = (unsigned char*)malloc(ppsSize);
-    if (!ctx->sps || !ctx->pps) return -1;
-
-    memcpy(ctx->sps, sps, spsSize);
-    ctx->spsSize = spsSize;
-    memcpy(ctx->pps, pps, ppsSize);
-    ctx->ppsSize = ppsSize;
-
-    // Parse dimensions from SPS
-    parseSPSDimensions(sps, spsSize, &ctx->width, &ctx->height);
+    ctx->width = width;
+    ctx->height = height;
 
     // Find decoder
     HRESULT hr = findH264Decoder(&ctx->transform);
@@ -209,9 +182,9 @@ static int mfInitializeDecoder(MFH264Decoder *ctx, unsigned char *sps, size_t sp
 
     IMFMediaType_SetGUID(ctx->inputType, &MF_MT_MAJOR_TYPE, &MFMediaType_Video);
     IMFMediaType_SetGUID(ctx->inputType, &MF_MT_SUBTYPE, &MFVideoFormat_H264);
-    MFSetAttributeSize(ctx->inputType, &MF_MT_FRAME_SIZE, ctx->width, ctx->height);
-    MFSetAttributeRatio(ctx->inputType, &MF_MT_FRAME_RATE, 30, 1);
-    MFSetAttributeRatio(ctx->inputType, &MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
+    MFSetAttributeSize(ctx->inputType, MF_MT_FRAME_SIZE, ctx->width, ctx->height);
+    MFSetAttributeRatio(ctx->inputType, MF_MT_FRAME_RATE, 30, 1);
+    MFSetAttributeRatio(ctx->inputType, MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
     IMFMediaType_SetUINT32(ctx->inputType, &MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 
     hr = IMFTransform_SetInputType(ctx->transform, 0, ctx->inputType, 0);
@@ -223,9 +196,9 @@ static int mfInitializeDecoder(MFH264Decoder *ctx, unsigned char *sps, size_t sp
 
     IMFMediaType_SetGUID(ctx->outputType, &MF_MT_MAJOR_TYPE, &MFMediaType_Video);
     IMFMediaType_SetGUID(ctx->outputType, &MF_MT_SUBTYPE, &MFVideoFormat_NV12);
-    MFSetAttributeSize(ctx->outputType, &MF_MT_FRAME_SIZE, ctx->width, ctx->height);
-    MFSetAttributeRatio(ctx->outputType, &MF_MT_FRAME_RATE, 30, 1);
-    MFSetAttributeRatio(ctx->outputType, &MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
+    MFSetAttributeSize(ctx->outputType, MF_MT_FRAME_SIZE, ctx->width, ctx->height);
+    MFSetAttributeRatio(ctx->outputType, MF_MT_FRAME_RATE, 30, 1);
+    MFSetAttributeRatio(ctx->outputType, MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
     IMFMediaType_SetUINT32(ctx->outputType, &MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 
     hr = IMFTransform_SetOutputType(ctx->transform, 0, ctx->outputType, 0);
@@ -275,22 +248,7 @@ static int mfDecodeFrame(MFH264Decoder *ctx, unsigned char *data, size_t size) {
 
     ctx->outputReady = 0;
 
-    // Check for SPS/PPS and initialize if needed
-    if (!ctx->initialized) {
-        unsigned char *sps = NULL, *pps = NULL;
-        size_t spsSize = 0, ppsSize = 0;
-
-        if (mfExtractSPSPPS(data, size, &sps, &spsSize, &pps, &ppsSize) == 0) {
-            int result = mfInitializeDecoder(ctx, sps, spsSize, pps, ppsSize);
-            free(sps);
-            free(pps);
-            if (result != 0) return -1;
-        } else {
-            return -1;
-        }
-    }
-
-    if (!ctx->transform) return -1;
+    if (!ctx->initialized || !ctx->transform) return -1;
 
     // Create input sample with Annex B data
     IMFSample *inputSample = NULL;
@@ -351,6 +309,13 @@ static int mfDecodeFrame(MFH264Decoder *ctx, unsigned char *data, size_t size) {
     outputData.pSample = outputSample;
 
     hr = IMFTransform_ProcessOutput(ctx->transform, 0, 1, &outputData, &status);
+
+    // MF_E_TRANSFORM_NEED_MORE_INPUT is not an error - decoder just needs more frames
+    if (hr == MF_E_TRANSFORM_NEED_MORE_INPUT) {
+        IMFMediaBuffer_Release(outputBuffer);
+        IMFSample_Release(outputSample);
+        return 0;  // Success, but no output yet
+    }
 
     if (SUCCEEDED(hr)) {
         // Extract decoded frame
@@ -415,11 +380,14 @@ import "C"
 import (
 	"image"
 	"unsafe"
+
+	"github.com/Eyevinn/mp4ff/avc"
 )
 
 // mediaFoundationDecoder implements H.264 decoding using Media Foundation on Windows.
 type mediaFoundationDecoder struct {
-	ctx *C.MFH264Decoder
+	ctx         *C.MFH264Decoder
+	initialized bool
 }
 
 func newPlatformDecoder() platformDecoder {
@@ -443,6 +411,20 @@ func (d *mediaFoundationDecoder) decodeFrame(data []byte) (image.Image, error) {
 		return nil, ErrDecodeFailed
 	}
 
+	// Initialize decoder on first frame with SPS
+	if !d.initialized {
+		width, height, err := d.parseSPSDimensions(data)
+		if err != nil {
+			return nil, ErrDecodeFailed
+		}
+
+		result := C.mfInitializeDecoderWithDimensions(d.ctx, C.int(width), C.int(height))
+		if result != 0 {
+			return nil, ErrDecodeFailed
+		}
+		d.initialized = true
+	}
+
 	result := C.mfDecodeFrame(
 		d.ctx,
 		(*C.uchar)(unsafe.Pointer(&data[0])),
@@ -457,8 +439,9 @@ func (d *mediaFoundationDecoder) decodeFrame(data []byte) (image.Image, error) {
 	height := int(C.mfGetOutputHeight(d.ctx))
 	outputData := C.mfGetOutputData(d.ctx)
 
+	// No output yet (decoder needs more input) - return nil without error
 	if width == 0 || height == 0 || outputData == nil {
-		return nil, ErrDecodeFailed
+		return nil, nil
 	}
 
 	// Create Go image from output data
@@ -474,6 +457,32 @@ func (d *mediaFoundationDecoder) close() {
 		C.mfDestroyDecoder(d.ctx)
 		d.ctx = nil
 	}
+	d.initialized = false
+}
+
+// parseSPSDimensions extracts video dimensions from SPS NAL unit in Annex B data.
+func (d *mediaFoundationDecoder) parseSPSDimensions(data []byte) (int, int, error) {
+	// Extract NAL units from Annex B format
+	nalus := avc.ExtractNalusFromByteStream(data)
+
+	for _, nalu := range nalus {
+		if len(nalu) == 0 {
+			continue
+		}
+
+		naluType := avc.GetNaluType(nalu[0])
+		if naluType == avc.NALU_SPS {
+			// Parse SPS to get dimensions
+			sps, err := avc.ParseSPSNALUnit(nalu, false)
+			if err != nil {
+				continue
+			}
+
+			return int(sps.Width), int(sps.Height), nil
+		}
+	}
+
+	return 0, 0, ErrDecodeFailed
 }
 
 // checkPlatformAvailability returns true on Windows as Media Foundation is always available.

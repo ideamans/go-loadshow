@@ -174,6 +174,12 @@ func (r *MP4Reader) readFragmentedMP4(mp4File *mp4.File, reader io.ReadSeeker) (
 						continue
 					}
 
+					// Skip frames with no output (decoder needs more input)
+					if img == nil {
+						currentTime += uint64(sample.Dur)
+						continue
+					}
+
 					timestampMs := int(currentTime * 1000 / uint64(timescale))
 					durationMs := int(uint64(sample.Dur) * 1000 / uint64(timescale))
 
@@ -299,6 +305,11 @@ func (r *MP4Reader) readProgressiveMP4(mp4File *mp4.File, reader io.ReadSeeker) 
 		img, err := r.decoder.DecodeFrame(frameData)
 		if err != nil {
 			continue // Skip frames that can't be decoded
+		}
+
+		// Skip frames with no output (decoder needs more input)
+		if img == nil {
+			continue
 		}
 
 		frames = append(frames, ports.VideoFrame{
