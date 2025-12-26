@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"image"
 	"image/color"
+	"runtime"
 	"testing"
 
 	"github.com/user/loadshow/pkg/adapters/h264encoder"
@@ -27,6 +28,10 @@ func createTestImage(width, height int, frameNum int) *image.RGBA {
 }
 
 func TestEncodeDecodeRoundTrip(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Media Foundation H.264 decoder not available on Windows Server CI")
+	}
+
 	// First, encode some frames
 	enc := h264encoder.New()
 
