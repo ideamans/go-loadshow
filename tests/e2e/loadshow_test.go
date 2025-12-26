@@ -347,12 +347,13 @@ func TestJuxtaposeCommand(t *testing.T) {
 	rightPath := filepath.Join(tmpDir, "right.mp4")
 	outputPath := filepath.Join(tmpDir, "output.mp4")
 
-	// Create left video
+	// Create left video (use AV1 for cross-platform compatibility - H.264 decoder not available on Windows Server)
 	cmd := exec.Command(
 		getBinaryPath(),
 		"record",
 		"-o", leftPath,
 		"-p", "mobile",
+		"--codec", "av1",
 		testURL,
 	)
 	cmd.Dir = getProjectRoot(t)
@@ -366,6 +367,7 @@ func TestJuxtaposeCommand(t *testing.T) {
 		"record",
 		"-o", rightPath,
 		"-p", "desktop",
+		"--codec", "av1",
 		testURL,
 	)
 	cmd.Dir = getProjectRoot(t)
@@ -378,6 +380,7 @@ func TestJuxtaposeCommand(t *testing.T) {
 		getBinaryPath(),
 		"juxtapose",
 		"-o", outputPath,
+		"--codec", "av1",
 		leftPath,
 		rightPath,
 	)
@@ -557,12 +560,13 @@ func TestJuxtaposeWithCodec(t *testing.T) {
 	rightPath := filepath.Join(tmpDir, "right.mp4")
 	outputPath := filepath.Join(tmpDir, "output.mp4")
 
-	// Create left video (using default codec - H.264 if available)
+	// Create left video (use AV1 for input - H.264 decoder not available on Windows Server)
 	cmd := exec.Command(
 		getBinaryPath(),
 		"record",
 		"-o", leftPath,
 		"-p", "mobile",
+		"--codec", "av1",
 		testURL,
 	)
 	cmd.Dir = getProjectRoot(t)
@@ -576,6 +580,7 @@ func TestJuxtaposeWithCodec(t *testing.T) {
 		"record",
 		"-o", rightPath,
 		"-p", "desktop",
+		"--codec", "av1",
 		testURL,
 	)
 	cmd.Dir = getProjectRoot(t)
@@ -583,7 +588,8 @@ func TestJuxtaposeWithCodec(t *testing.T) {
 		t.Fatalf("Failed to create right video: %v\n%s", err, out)
 	}
 
-	// Run juxtapose with explicit codec
+	// Run juxtapose with explicit codec (test output codec option)
+	// Note: Input videos are AV1, but output can be H.264 (encoder works, just not decoder)
 	cmd = exec.Command(
 		getBinaryPath(),
 		"juxtapose",
