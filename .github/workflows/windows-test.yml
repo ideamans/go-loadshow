@@ -32,23 +32,19 @@ jobs:
           path: |
             C:/vcpkg/installed
             C:/vcpkg/packages
-          key: vcpkg-windows-x64-aom-${{ hashFiles('.github/workflows/windows-test.yml') }}
+          key: vcpkg-windows-x64-mingw-static-aom-${{ hashFiles('.github/workflows/windows-test.yml') }}
           restore-keys: |
-            vcpkg-windows-x64-aom-
+            vcpkg-windows-x64-mingw-static-aom-
 
-      - name: Install libaom via vcpkg
+      - name: Install libaom via vcpkg (MinGW static)
         run: |
-          vcpkg install aom:x64-windows
-          echo "PKG_CONFIG_PATH=C:/vcpkg/installed/x64-windows/lib/pkgconfig" >> $env:GITHUB_ENV
-          echo "C:/vcpkg/installed/x64-windows/bin" >> $env:GITHUB_PATH
+          vcpkg install aom:x64-mingw-static
         shell: pwsh
 
       - name: Run unit tests
         run: |
           $env:CGO_ENABLED = "1"
           $env:CC = "gcc"
-          $env:PKG_CONFIG_PATH = "C:/vcpkg/installed/x64-windows/lib/pkgconfig"
-          $env:PATH = "C:/vcpkg/installed/x64-windows/bin;" + $env:PATH
           go test -v -race ./pkg/...
         shell: pwsh
 
@@ -78,15 +74,13 @@ jobs:
           path: |
             C:/vcpkg/installed
             C:/vcpkg/packages
-          key: vcpkg-windows-x64-aom-${{ hashFiles('.github/workflows/windows-test.yml') }}
+          key: vcpkg-windows-x64-mingw-static-aom-${{ hashFiles('.github/workflows/windows-test.yml') }}
           restore-keys: |
-            vcpkg-windows-x64-aom-
+            vcpkg-windows-x64-mingw-static-aom-
 
-      - name: Install libaom via vcpkg
+      - name: Install libaom via vcpkg (MinGW static)
         run: |
-          vcpkg install aom:x64-windows
-          echo "PKG_CONFIG_PATH=C:/vcpkg/installed/x64-windows/lib/pkgconfig" >> $env:GITHUB_ENV
-          echo "C:/vcpkg/installed/x64-windows/bin" >> $env:GITHUB_PATH
+          vcpkg install aom:x64-mingw-static
         shell: pwsh
 
       - name: Install Chrome
@@ -98,8 +92,6 @@ jobs:
         run: |
           $env:CGO_ENABLED = "1"
           $env:CC = "gcc"
-          $env:PKG_CONFIG_PATH = "C:/vcpkg/installed/x64-windows/lib/pkgconfig"
-          $env:PATH = "C:/vcpkg/installed/x64-windows/bin;" + $env:PATH
           go test -v -race -tags=integration ./pkg/...
         shell: pwsh
 
@@ -130,15 +122,13 @@ jobs:
           path: |
             C:/vcpkg/installed
             C:/vcpkg/packages
-          key: vcpkg-windows-x64-aom-${{ hashFiles('.github/workflows/windows-test.yml') }}
+          key: vcpkg-windows-x64-mingw-static-aom-${{ hashFiles('.github/workflows/windows-test.yml') }}
           restore-keys: |
-            vcpkg-windows-x64-aom-
+            vcpkg-windows-x64-mingw-static-aom-
 
-      - name: Install libaom via vcpkg
+      - name: Install libaom via vcpkg (MinGW static)
         run: |
-          vcpkg install aom:x64-windows
-          echo "PKG_CONFIG_PATH=C:/vcpkg/installed/x64-windows/lib/pkgconfig" >> $env:GITHUB_ENV
-          echo "C:/vcpkg/installed/x64-windows/bin" >> $env:GITHUB_PATH
+          vcpkg install aom:x64-mingw-static
         shell: pwsh
 
       - name: Install Chrome
@@ -150,7 +140,5 @@ jobs:
         run: |
           $env:CGO_ENABLED = "1"
           $env:CC = "gcc"
-          $env:PKG_CONFIG_PATH = "C:/vcpkg/installed/x64-windows/lib/pkgconfig"
-          $env:PATH = "C:/vcpkg/installed/x64-windows/bin;" + $env:PATH
           go test -v -race -tags=e2e ./pkg/...
         shell: pwsh
