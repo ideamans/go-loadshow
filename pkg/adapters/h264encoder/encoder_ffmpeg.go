@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux || windows
 
 package h264encoder
 
@@ -10,12 +10,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"sync"
 
 	"github.com/user/loadshow/pkg/ports"
 )
 
-// ffmpegEncoder implements H.264 encoding using ffmpeg external process on Linux.
+// ffmpegEncoder implements H.264 encoding using ffmpeg external process.
 type ffmpegEncoder struct {
 	ffmpegPath string
 	width      int
@@ -26,29 +27,44 @@ type ffmpegEncoder struct {
 	mu         sync.Mutex
 	cmd        *exec.Cmd
 	stdin      io.WriteCloser
-	outputFile *os.File
+	stderr     bytes.Buffer
 	tempPath   string
 	frameCount int
-	firstFrame bool
+	closed     bool
 }
 
 func newPlatformEncoder() platformEncoder {
 	return &ffmpegEncoder{}
 }
 
-// findFFmpeg searches for ffmpeg in PATH
+// findFFmpeg searches for ffmpeg in PATH and common locations
 func findFFmpeg() (string, error) {
-	// Check PATH
-	path, err := exec.LookPath("ffmpeg")
+	// Check PATH first
+	execName := "ffmpeg"
+	if runtime.GOOS == "windows" {
+		execName = "ffmpeg.exe"
+	}
+
+	path, err := exec.LookPath(execName)
 	if err == nil {
 		return path, nil
 	}
 
 	// Check common locations
-	commonPaths := []string{
-		"/usr/bin/ffmpeg",
-		"/usr/local/bin/ffmpeg",
-		"/opt/homebrew/bin/ffmpeg",
+	var commonPaths []string
+	if runtime.GOOS == "windows" {
+		commonPaths = []string{
+			`C:\ffmpeg\bin\ffmpeg.exe`,
+			`C:\Program Files\ffmpeg\bin\ffmpeg.exe`,
+			`C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe`,
+		}
+	} else {
+		commonPaths = []string{
+			"/usr/bin/ffmpeg",
+			"/usr/local/bin/ffmpeg",
+			"/opt/homebrew/bin/ffmpeg",
+			"/snap/bin/ffmpeg",
+		}
 	}
 
 	for _, p := range commonPaths {
@@ -76,7 +92,7 @@ func (e *ffmpegEncoder) init(width, height int, fps float64, opts ports.EncoderO
 	e.fps = fps
 	e.opts = opts
 	e.frameCount = 0
-	e.firstFrame = true
+	e.closed = false
 
 	// Create temporary output file
 	tmpFile, err := os.CreateTemp("", "h264encode_*.mp4")
@@ -88,15 +104,15 @@ func (e *ffmpegEncoder) init(width, height int, fps float64, opts ports.EncoderO
 
 	// Build ffmpeg arguments
 	args := []string{
-		"-y",                    // Overwrite output
-		"-f", "rawvideo",        // Input format
-		"-pix_fmt", "rgba",      // Input pixel format
+		"-y",             // Overwrite output
+		"-f", "rawvideo", // Input format
+		"-pix_fmt", "rgba", // Input pixel format
 		"-s", fmt.Sprintf("%dx%d", width, height), // Input size
-		"-r", fmt.Sprintf("%.2f", fps),            // Input frame rate
-		"-i", "pipe:0",          // Read from stdin
-		"-c:v", "libx264",       // Use libx264
-		"-preset", "fast",       // Encoding preset
-		"-pix_fmt", "yuv420p",   // Output pixel format
+		"-r", fmt.Sprintf("%.2f", fps), // Input frame rate
+		"-i", "pipe:0",       // Read from stdin
+		"-c:v", "libx264",    // Use libx264
+		"-preset", "fast",    // Encoding preset
+		"-pix_fmt", "yuv420p", // Output pixel format
 	}
 
 	// Add quality settings
@@ -126,7 +142,7 @@ func (e *ffmpegEncoder) init(width, height int, fps float64, opts ports.EncoderO
 
 	// Start ffmpeg
 	e.cmd = exec.Command(e.ffmpegPath, args...)
-	e.cmd.Stderr = io.Discard // Suppress ffmpeg output
+	e.cmd.Stderr = &e.stderr
 
 	stdin, err := e.cmd.StdinPipe()
 	if err != nil {
@@ -147,7 +163,7 @@ func (e *ffmpegEncoder) encodeFrame(img image.Image, timestampMs int) ([]encoded
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if e.stdin == nil {
+	if e.stdin == nil || e.closed {
 		return nil, ErrNotInitialized
 	}
 
@@ -170,120 +186,58 @@ func (e *ffmpegEncoder) flush() ([]encodedFrame, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if e.stdin == nil {
+	if e.stdin == nil || e.closed {
 		return nil, nil
 	}
 
 	// Close stdin to signal end of input
 	e.stdin.Close()
 	e.stdin = nil
+	e.closed = true
 
 	// Wait for ffmpeg to finish
 	if err := e.cmd.Wait(); err != nil {
-		return nil, fmt.Errorf("ffmpeg encoding failed: %w", err)
+		stderrOutput := e.stderr.String()
+		return nil, fmt.Errorf("ffmpeg encoding failed: %w\nstderr: %s", err, stderrOutput)
 	}
 
-	// Read the output file
-	data, err := os.ReadFile(e.tempPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read output: %w", err)
-	}
-
-	// Parse MP4 to extract H.264 frames (we need raw NAL units for our MP4 builder)
-	frames, err := e.extractFramesFromMP4(data)
-	if err != nil {
-		// Fallback: return data as-is wrapped in a single "frame"
-		// The caller will need to handle this differently
-		return []encodedFrame{{
-			data:        data,
-			timestampUs: 0,
-			isKeyframe:  true,
-		}}, nil
-	}
-
-	return frames, nil
-}
-
-// extractFramesFromMP4 extracts H.264 NAL units from MP4 container
-func (e *ffmpegEncoder) extractFramesFromMP4(data []byte) ([]encodedFrame, error) {
-	// For simplicity, we'll return the raw MP4 data
-	// The MP4 building in the main encoder will detect this and skip re-muxing
-	// This is a simplification - in production we'd properly parse the MP4
-
-	// For now, mark this as a complete MP4 by returning a special marker
-	return nil, fmt.Errorf("MP4 passthrough")
+	// Return empty - the MP4 file is ready
+	return nil, nil
 }
 
 func (e *ffmpegEncoder) close() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if e.stdin != nil {
+	if e.stdin != nil && !e.closed {
 		e.stdin.Close()
 		e.stdin = nil
 	}
 
-	if e.cmd != nil && e.cmd.Process != nil {
+	if e.cmd != nil && e.cmd.Process != nil && !e.closed {
 		e.cmd.Process.Kill()
-		e.cmd = nil
+		e.cmd.Wait()
 	}
 
-	if e.tempPath != "" {
-		os.Remove(e.tempPath)
-		e.tempPath = ""
-	}
+	// Don't remove temp file here - it's needed for getOutputMP4
+	e.closed = true
 }
 
 // getOutputMP4 returns the complete MP4 file produced by ffmpeg.
-// This is used when ffmpeg produces the final output directly.
+// This implements the mp4Provider interface.
 func (e *ffmpegEncoder) getOutputMP4() ([]byte, error) {
 	if e.tempPath == "" {
 		return nil, ErrNotInitialized
 	}
 
-	return os.ReadFile(e.tempPath)
-}
-
-// Encoder extension for Linux - override buildMP4 to use ffmpeg's output directly
-type linuxEncoderExt interface {
-	getOutputMP4() ([]byte, error)
-}
-
-// IsFFmpegEncoder returns true if this is an ffmpeg-based encoder
-func IsFFmpegEncoder(enc platformEncoder) bool {
-	_, ok := enc.(*ffmpegEncoder)
-	return ok
-}
-
-// GetFFmpegOutput returns the complete MP4 from ffmpeg encoder
-func GetFFmpegOutput(enc platformEncoder) ([]byte, error) {
-	if fe, ok := enc.(*ffmpegEncoder); ok {
-		return fe.getOutputMP4()
-	}
-	return nil, fmt.Errorf("not an ffmpeg encoder")
-}
-
-// init registers a hook to override MP4 building on Linux
-func init() {
-	// This is handled in the main encoder's End() method
-}
-
-// Helper to check if we should use direct ffmpeg output
-func useDirectFFmpegOutput() bool {
-	return true // Always use ffmpeg's output on Linux
-}
-
-// readMP4Frames is a placeholder - in production this would parse MP4
-func readMP4Frames(r io.Reader) ([]encodedFrame, error) {
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, r); err != nil {
-		return nil, err
+	data, err := os.ReadFile(e.tempPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read output: %w", err)
 	}
 
-	// Return as single frame (MP4 passthrough)
-	return []encodedFrame{{
-		data:        buf.Bytes(),
-		timestampUs: 0,
-		isKeyframe:  true,
-	}}, nil
+	// Clean up temp file after reading
+	os.Remove(e.tempPath)
+	e.tempPath = ""
+
+	return data, nil
 }
