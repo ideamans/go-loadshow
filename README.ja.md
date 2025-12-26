@@ -56,11 +56,11 @@ make build
 
 ### プラットフォーム別の依存関係
 
-| プラットフォーム | H.264コーデック            | AV1コーデック        | 外部依存                     |
-|-----------------|---------------------------|---------------------|------------------------------|
-| **Windows**     | Media Foundation（OS標準） | libaom（静的リンク） | なし                          |
-| **macOS**       | VideoToolbox（OS標準）     | libaom（静的リンク） | なし                          |
-| **Linux**       | FFmpeg（外部プロセス）     | libaom（静的リンク） | FFmpegが必要（H.264使用時）   |
+| Platform    | H.264 Codec                | AV1 Codec            | External Dependencies         |
+|-------------|----------------------------|----------------------|-------------------------------|
+| **Windows** | Media Foundation (OS標準)  | libaom (静的リンク)  | なし                          |
+| **macOS**   | VideoToolbox (OS標準)      | libaom (静的リンク)  | なし                          |
+| **Linux**   | FFmpeg (外部プロセス)      | libaom (静的リンク)  | FFmpegが必要 (H.264使用時)    |
 
 LinuxでH.264を使用する場合はFFmpegをインストールしてください：
 
