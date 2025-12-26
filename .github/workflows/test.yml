@@ -38,11 +38,12 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Setup MinGW-w64 (Windows)
+      - name: Install MinGW-w64 (Windows)
         if: runner.os == 'Windows'
-        uses: egor-tensin/setup-mingw@v2
-        with:
-          platform: x64
+        run: |
+          choco install mingw -y
+          echo "C:\ProgramData\mingw64\mingw64\bin" >> $env:GITHUB_PATH
+        shell: pwsh
 
       - name: Cache vcpkg (Windows)
         if: runner.os == 'Windows'
@@ -111,11 +112,12 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Setup MinGW-w64 (Windows)
+      - name: Install MinGW-w64 (Windows)
         if: runner.os == 'Windows'
-        uses: egor-tensin/setup-mingw@v2
-        with:
-          platform: x64
+        run: |
+          choco install mingw -y
+          echo "C:\ProgramData\mingw64\mingw64\bin" >> $env:GITHUB_PATH
+        shell: pwsh
 
       - name: Cache vcpkg (Windows)
         if: runner.os == 'Windows'
@@ -181,11 +183,12 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Setup MinGW-w64 (Windows)
+      - name: Install MinGW-w64 (Windows)
         if: runner.os == 'Windows'
-        uses: egor-tensin/setup-mingw@v2
-        with:
-          platform: x64
+        run: |
+          choco install mingw -y
+          echo "C:\ProgramData\mingw64\mingw64\bin" >> $env:GITHUB_PATH
+        shell: pwsh
 
       - name: Cache vcpkg (Windows)
         if: runner.os == 'Windows'
