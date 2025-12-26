@@ -7,6 +7,7 @@ package h264encoder
 #cgo LDFLAGS: -lmfplat -lmfuuid -lole32 -lmf -lmfreadwrite -lshlwapi
 
 #define COBJMACROS
+#include <stdint.h>
 #include <windows.h>
 #include <mfapi.h>
 #include <mfidl.h>
@@ -18,6 +19,18 @@ package h264encoder
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+// Helper macros for Media Foundation attribute setting
+static inline HRESULT MFSetAttributeSize_(IMFMediaType *pType, REFGUID guidKey, UINT32 width, UINT32 height) {
+    return IMFMediaType_SetUINT64(pType, guidKey, ((UINT64)width << 32) | height);
+}
+
+static inline HRESULT MFSetAttributeRatio_(IMFMediaType *pType, REFGUID guidKey, UINT32 num, UINT32 denom) {
+    return IMFMediaType_SetUINT64(pType, guidKey, ((UINT64)num << 32) | denom);
+}
+
+#define MFSetAttributeSize(pType, guidKey, width, height) MFSetAttributeSize_(pType, &guidKey, width, height)
+#define MFSetAttributeRatio(pType, guidKey, num, denom) MFSetAttributeRatio_(pType, &guidKey, num, denom)
 
 // Encoded frame buffer
 typedef struct {
@@ -47,6 +60,11 @@ typedef struct {
     unsigned char *pps;
     size_t ppsSize;
 } MFH264Encoder;
+
+// Forward declarations
+static int processOutput(MFH264Encoder *enc, int64_t timestampUs);
+static int encodeFrameInternal(MFH264Encoder *enc, unsigned char *rgbaData, int64_t timestampUs, int forceKeyframe);
+static int flushEncoderInternal(MFH264Encoder *enc);
 
 static int mfInitialized = 0;
 
