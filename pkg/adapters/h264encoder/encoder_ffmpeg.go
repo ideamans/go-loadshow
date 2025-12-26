@@ -37,9 +37,18 @@ func newPlatformEncoder() platformEncoder {
 	return &ffmpegEncoder{}
 }
 
-// findFFmpeg searches for ffmpeg in PATH and common locations
+// findFFmpeg searches for ffmpeg in PATH and common locations.
+// If customFFmpegPath is set, it uses that path instead.
 func findFFmpeg() (string, error) {
-	// Check PATH first
+	// Check custom path first (set via SetFFmpegPath)
+	if customFFmpegPath != "" {
+		if _, err := os.Stat(customFFmpegPath); err == nil {
+			return customFFmpegPath, nil
+		}
+		return "", fmt.Errorf("%w: custom path %s not found", ErrFFmpegNotFound, customFFmpegPath)
+	}
+
+	// Check PATH
 	execName := "ffmpeg"
 	if runtime.GOOS == "windows" {
 		execName = "ffmpeg.exe"
@@ -74,6 +83,12 @@ func findFFmpeg() (string, error) {
 	}
 
 	return "", ErrFFmpegNotFound
+}
+
+// checkPlatformAvailability checks if ffmpeg is available on the system.
+func checkPlatformAvailability() bool {
+	_, err := findFFmpeg()
+	return err == nil
 }
 
 func (e *ffmpegEncoder) init(width, height int, fps float64, opts ports.EncoderOptions) error {

@@ -21,3 +21,8 @@ func (d *stubDecoder) decodeFrame(data []byte) (image.Image, error) {
 }
 
 func (d *stubDecoder) close() {}
+
+// checkPlatformAvailability returns false for unsupported platforms.
+func checkPlatformAvailability() bool {
+	return false
+}

@@ -461,3 +461,8 @@ func (d *videoToolboxDecoder) close() {
 		d.ctx = nil
 	}
 }
+
+// checkPlatformAvailability returns true on macOS as VideoToolbox is always available.
+func checkPlatformAvailability() bool {
+	return true
+}

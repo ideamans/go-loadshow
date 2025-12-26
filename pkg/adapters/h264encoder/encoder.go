@@ -11,6 +11,27 @@ import (
 	"github.com/user/loadshow/pkg/ports"
 )
 
+// customFFmpegPath is set via SetFFmpegPath for Linux.
+var customFFmpegPath string
+
+// SetFFmpegPath sets a custom ffmpeg path for Linux.
+// This must be called before IsAvailable() or New().
+func SetFFmpegPath(path string) {
+	customFFmpegPath = path
+}
+
+// GetFFmpegPath returns the current custom ffmpeg path.
+func GetFFmpegPath() string {
+	return customFFmpegPath
+}
+
+// IsAvailable checks if H.264 encoding is available on this platform.
+// On macOS, it always returns true (VideoToolbox is always available).
+// On Linux/Windows, it checks if ffmpeg is available.
+func IsAvailable() bool {
+	return checkPlatformAvailability()
+}
+
 // encodedFrame represents a single encoded H.264 frame.
 type encodedFrame struct {
 	data        []byte

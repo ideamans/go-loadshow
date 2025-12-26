@@ -539,3 +539,8 @@ func (e *videoToolboxEncoder) close() {
 	}
 	e.initialized = false
 }
+
+// checkPlatformAvailability returns true on macOS as VideoToolbox is always available.
+func checkPlatformAvailability() bool {
+	return true
+}

@@ -29,3 +29,8 @@ func (e *unsupportedEncoder) flush() ([]encodedFrame, error) {
 
 func (e *unsupportedEncoder) close() {
 }
+
+// checkPlatformAvailability returns false for unsupported platforms.
+func checkPlatformAvailability() bool {
+	return false
+}

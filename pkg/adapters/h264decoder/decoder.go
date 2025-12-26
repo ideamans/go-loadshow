@@ -23,6 +23,25 @@ var (
 	ErrPlatformNotSupported = errors.New("h264decoder: platform not supported")
 )
 
+// customFFmpegPath is set via SetFFmpegPath for Linux.
+var customFFmpegPath string
+
+// SetFFmpegPath sets a custom ffmpeg path for Linux.
+// This must be called before IsAvailable() or New().
+func SetFFmpegPath(path string) {
+	customFFmpegPath = path
+}
+
+// GetFFmpegPath returns the current custom ffmpeg path.
+func GetFFmpegPath() string {
+	return customFFmpegPath
+}
+
+// IsAvailable checks if H.264 decoding is available on this platform.
+func IsAvailable() bool {
+	return checkPlatformAvailability()
+}
+
 // Decoder decodes H.264 video frames using platform-native APIs.
 type Decoder struct {
 	platformDecoder platformDecoder
