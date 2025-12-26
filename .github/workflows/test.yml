@@ -204,9 +204,16 @@ jobs:
         shell: pwsh
 
       - name: Install Chrome
+        id: setup-chrome
         uses: browser-actions/setup-chrome@v1
         with:
           chrome-version: stable
+
+      - name: Install FFmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
 
       - name: Install dependencies and run tests (Unix)
         if: runner.os != 'Windows'
@@ -216,6 +223,8 @@ jobs:
 
       - name: Install dependencies and run tests (Windows)
         if: runner.os == 'Windows'
+        env:
+          CHROME_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
         run: |
           $env:CGO_ENABLED = "1"
           $env:CC = "gcc"
