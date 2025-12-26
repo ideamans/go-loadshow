@@ -282,9 +282,10 @@ func recordCommand() *cli.Command {
 			},
 
 			// ===== 7. Video and Quality =====
-			&cli.BoolFlag{
-				Name:     "av1",
-				Usage:    l10n.T("Force AV1 codec instead of H.264"),
+			&cli.StringFlag{
+				Name:     "codec",
+				Value:    "h264",
+				Usage:    l10n.T("Video codec (h264, av1)"),
 				Category: l10n.T(catVideoQuality),
 			},
 			&cli.StringFlag{
@@ -372,9 +373,10 @@ func juxtaposeCommand() *cli.Command {
 				Usage:    l10n.T("Quality preset (low, medium, high)"),
 				Category: l10n.T(catPreset),
 			},
-			&cli.BoolFlag{
-				Name:     "av1",
-				Usage:    l10n.T("Force AV1 codec instead of H.264"),
+			&cli.StringFlag{
+				Name:     "codec",
+				Value:    "h264",
+				Usage:    l10n.T("Video codec (h264, av1)"),
 				Category: l10n.T(catVideoQuality),
 			},
 			&cli.StringFlag{
@@ -440,23 +442,27 @@ func runRecord(c *cli.Context) error {
 		h264decoder.SetFFmpegPath(ffmpegPath)
 	}
 
-	// Select encoder: H.264 by default, AV1 if --av1 flag or H.264 not available
+	// Select encoder based on --codec option
 	var encoder ports.VideoEncoder
 	var codecName string
+	requestedCodec := c.String("codec")
 
-	if c.Bool("av1") {
+	switch requestedCodec {
+	case "av1":
 		encoder = av1encoder.New()
 		codecName = "AV1"
-	} else if h264encoder.IsAvailable() {
-		encoder = h264encoder.New()
-		codecName = "H.264"
-	} else {
-		// Fallback to AV1 if H.264 is not available (e.g., no ffmpeg on Linux)
-		encoder = av1encoder.New()
-		codecName = "AV1 (fallback)"
-		if runtime.GOOS == "linux" || runtime.GOOS == "windows" {
-			log.Warn(l10n.T("ffmpeg not found, falling back to AV1 encoder"))
+	case "h264":
+		if h264encoder.IsAvailable() {
+			encoder = h264encoder.New()
+			codecName = "H.264"
+		} else {
+			// Fallback to AV1 if H.264 is not available (e.g., no ffmpeg on Linux)
+			encoder = av1encoder.New()
+			codecName = "AV1"
+			log.Warn(l10n.T("H.264 encoder not available (ffmpeg not found), falling back to AV1"))
 		}
+	default:
+		return fmt.Errorf("unknown codec: %s (supported: h264, av1)", requestedCodec)
 	}
 
 	// Create debug sink
@@ -651,27 +657,31 @@ func runJuxtapose(c *cli.Context) error {
 		h264decoder.SetFFmpegPath(ffmpegPath)
 	}
 
-	// Select encoder and decoder: H.264 by default, AV1 if --av1 flag or H.264 not available
+	// Select encoder and decoder based on --codec option
 	var encoder ports.VideoEncoder
 	var decoder ports.VideoDecoder
 	var codecName string
+	requestedCodec := c.String("codec")
 
-	if c.Bool("av1") {
+	switch requestedCodec {
+	case "av1":
 		encoder = av1encoder.New()
 		decoder = av1decoder.NewMP4Reader()
 		codecName = "AV1"
-	} else if h264encoder.IsAvailable() {
-		encoder = h264encoder.New()
-		decoder = h264decoder.NewMP4Reader()
-		codecName = "H.264"
-	} else {
-		// Fallback to AV1 if H.264 is not available (e.g., no ffmpeg on Linux)
-		encoder = av1encoder.New()
-		decoder = av1decoder.NewMP4Reader()
-		codecName = "AV1 (fallback)"
-		if runtime.GOOS == "linux" || runtime.GOOS == "windows" {
-			log.Warn(l10n.T("ffmpeg not found, falling back to AV1 codec"))
+	case "h264":
+		if h264encoder.IsAvailable() {
+			encoder = h264encoder.New()
+			decoder = h264decoder.NewMP4Reader()
+			codecName = "H.264"
+		} else {
+			// Fallback to AV1 if H.264 is not available (e.g., no ffmpeg on Linux)
+			encoder = av1encoder.New()
+			decoder = av1decoder.NewMP4Reader()
+			codecName = "AV1"
+			log.Warn(l10n.T("H.264 encoder not available (ffmpeg not found), falling back to AV1"))
 		}
+	default:
+		return fmt.Errorf("unknown codec: %s (supported: h264, av1)", requestedCodec)
 	}
 
 	// Create juxtapose options

@@ -402,6 +402,223 @@ func TestJuxtaposeCommand(t *testing.T) {
 	t.Logf("Juxtapose video created: %d bytes", info.Size())
 }
 
+// TestRecordWithCodecH264 tests recording with H.264 codec (default)
+func TestRecordWithCodecH264(t *testing.T) {
+	if os.Getenv("LOADSHOW_E2E") != "1" {
+		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
+	}
+
+	if shouldBuildBinary() {
+		buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
+		buildCmd.Dir = getProjectRoot(t)
+		if out, err := buildCmd.CombinedOutput(); err != nil {
+			t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+		}
+		defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
+	}
+
+	tmpFile, err := os.CreateTemp("", "loadshow-e2e-h264-*.mp4")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+
+	// Use explicit --codec h264 flag
+	cmd := exec.Command(
+		getBinaryPath(),
+		"record",
+		"-o", tmpFile.Name(),
+		"-p", "mobile",
+		"--codec", "h264",
+		testURL,
+	)
+	cmd.Dir = getProjectRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err = cmd.Run()
+	if err != nil {
+		// If H.264 is not available, it should fall back to AV1
+		if strings.Contains(stderr.String(), "falling back to AV1") {
+			t.Log("H.264 not available, fell back to AV1")
+		} else {
+			t.Fatalf("Record command failed: %v\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
+		}
+	}
+
+	// Verify output file
+	info, err := os.Stat(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("Output file not found: %v", err)
+	}
+
+	if info.Size() < 10*1024 {
+		t.Errorf("Output file too small: %d bytes", info.Size())
+	}
+
+	// Check if H.264 codec was used (look for log output)
+	output := stdout.String() + stderr.String()
+	if strings.Contains(output, "H.264 codec") {
+		t.Log("Successfully recorded with H.264 codec")
+	} else if strings.Contains(output, "AV1") {
+		t.Log("Recorded with AV1 codec (fallback)")
+	}
+
+	t.Logf("H.264 video created: %d bytes", info.Size())
+}
+
+// TestRecordWithCodecAV1 tests recording with AV1 codec (explicit)
+func TestRecordWithCodecAV1(t *testing.T) {
+	if os.Getenv("LOADSHOW_E2E") != "1" {
+		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
+	}
+
+	if shouldBuildBinary() {
+		buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
+		buildCmd.Dir = getProjectRoot(t)
+		if out, err := buildCmd.CombinedOutput(); err != nil {
+			t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+		}
+		defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
+	}
+
+	tmpFile, err := os.CreateTemp("", "loadshow-e2e-av1-*.mp4")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+
+	// Use explicit --codec av1 flag
+	cmd := exec.Command(
+		getBinaryPath(),
+		"record",
+		"-o", tmpFile.Name(),
+		"-p", "mobile",
+		"--codec", "av1",
+		testURL,
+	)
+	cmd.Dir = getProjectRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err = cmd.Run()
+	if err != nil {
+		t.Fatalf("Record command failed: %v\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
+	}
+
+	// Verify output file
+	info, err := os.Stat(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("Output file not found: %v", err)
+	}
+
+	if info.Size() < 10*1024 {
+		t.Errorf("Output file too small: %d bytes", info.Size())
+	}
+
+	// Check if AV1 codec was used
+	output := stdout.String() + stderr.String()
+	if strings.Contains(output, "AV1 codec") {
+		t.Log("Successfully recorded with AV1 codec")
+	}
+
+	t.Logf("AV1 video created: %d bytes", info.Size())
+}
+
+// TestJuxtaposeWithCodec tests juxtapose with codec options
+func TestJuxtaposeWithCodec(t *testing.T) {
+	if os.Getenv("LOADSHOW_E2E") != "1" {
+		t.Skip("Skipping E2E test (set LOADSHOW_E2E=1 to run)")
+	}
+
+	if shouldBuildBinary() {
+		buildCmd := exec.Command("go", "build", "-o", getBinaryName(), "./cmd/loadshow")
+		buildCmd.Dir = getProjectRoot(t)
+		if out, err := buildCmd.CombinedOutput(); err != nil {
+			t.Fatalf("Failed to build CLI: %v\n%s", err, out)
+		}
+		defer os.Remove(filepath.Join(getProjectRoot(t), getBinaryName()))
+	}
+
+	// Create temp directory
+	tmpDir, err := os.MkdirTemp("", "loadshow-e2e-juxta-codec-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	leftPath := filepath.Join(tmpDir, "left.mp4")
+	rightPath := filepath.Join(tmpDir, "right.mp4")
+	outputPath := filepath.Join(tmpDir, "output.mp4")
+
+	// Create left video (using default codec - H.264 if available)
+	cmd := exec.Command(
+		getBinaryPath(),
+		"record",
+		"-o", leftPath,
+		"-p", "mobile",
+		testURL,
+	)
+	cmd.Dir = getProjectRoot(t)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to create left video: %v\n%s", err, out)
+	}
+
+	// Create right video
+	cmd = exec.Command(
+		getBinaryPath(),
+		"record",
+		"-o", rightPath,
+		"-p", "desktop",
+		testURL,
+	)
+	cmd.Dir = getProjectRoot(t)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to create right video: %v\n%s", err, out)
+	}
+
+	// Run juxtapose with explicit codec
+	cmd = exec.Command(
+		getBinaryPath(),
+		"juxtapose",
+		"-o", outputPath,
+		"--codec", "h264",
+		leftPath,
+		rightPath,
+	)
+	cmd.Dir = getProjectRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err = cmd.Run()
+	if err != nil {
+		// If H.264 not available, should fall back
+		if !strings.Contains(stderr.String(), "falling back") {
+			t.Fatalf("Juxtapose command failed: %v\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
+		}
+	}
+
+	// Verify output file
+	info, err := os.Stat(outputPath)
+	if err != nil {
+		t.Fatalf("Output file not found: %v", err)
+	}
+
+	if info.Size() < 10*1024 {
+		t.Errorf("Output file too small: %d bytes", info.Size())
+	}
+
+	t.Logf("Juxtapose with codec option: %d bytes", info.Size())
+}
+
 // TestRecordWithProxy tests recording with proxy option
 func TestRecordWithProxy(t *testing.T) {
 	if os.Getenv("LOADSHOW_E2E") != "1" {
@@ -435,6 +652,10 @@ func TestRecordWithProxy(t *testing.T) {
 
 	if !strings.Contains(string(out), "--ignore-https-errors") {
 		t.Error("Expected --ignore-https-errors option in help")
+	}
+
+	if !strings.Contains(string(out), "--codec") {
+		t.Error("Expected --codec option in help")
 	}
 }
 
