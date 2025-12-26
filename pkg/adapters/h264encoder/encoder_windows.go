@@ -149,10 +149,10 @@ static MFH264Encoder* createEncoder(int width, int height, double fps, int bitra
 
     IMFMediaType_SetGUID(enc->outputType, &MF_MT_MAJOR_TYPE, &MFMediaType_Video);
     IMFMediaType_SetGUID(enc->outputType, &MF_MT_SUBTYPE, &MFVideoFormat_H264);
-    MFSetAttributeSize(enc->outputType, &MF_MT_FRAME_SIZE, width, height);
-    MFSetAttributeRatio(enc->outputType, &MF_MT_FRAME_RATE, (UINT32)(fps * 1000), 1000);
+    MFSetAttributeSize(enc->outputType, MF_MT_FRAME_SIZE, width, height);
+    MFSetAttributeRatio(enc->outputType, MF_MT_FRAME_RATE, (UINT32)(fps * 1000), 1000);
     IMFMediaType_SetUINT32(enc->outputType, &MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
-    MFSetAttributeRatio(enc->outputType, &MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
+    MFSetAttributeRatio(enc->outputType, MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
 
     // Set bitrate
     UINT32 avgBitrate = bitrate > 0 ? bitrate * 1000 : (UINT32)(width * height * fps * 0.1);
@@ -171,10 +171,10 @@ static MFH264Encoder* createEncoder(int width, int height, double fps, int bitra
 
     IMFMediaType_SetGUID(enc->inputType, &MF_MT_MAJOR_TYPE, &MFMediaType_Video);
     IMFMediaType_SetGUID(enc->inputType, &MF_MT_SUBTYPE, &MFVideoFormat_NV12);
-    MFSetAttributeSize(enc->inputType, &MF_MT_FRAME_SIZE, width, height);
-    MFSetAttributeRatio(enc->inputType, &MF_MT_FRAME_RATE, (UINT32)(fps * 1000), 1000);
+    MFSetAttributeSize(enc->inputType, MF_MT_FRAME_SIZE, width, height);
+    MFSetAttributeRatio(enc->inputType, MF_MT_FRAME_RATE, (UINT32)(fps * 1000), 1000);
     IMFMediaType_SetUINT32(enc->inputType, &MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
-    MFSetAttributeRatio(enc->inputType, &MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
+    MFSetAttributeRatio(enc->inputType, MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
 
     hr = IMFTransform_SetInputType(enc->transform, 0, enc->inputType, 0);
     if (FAILED(hr)) goto cleanup;

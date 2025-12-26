@@ -209,9 +209,9 @@ static int mfInitializeDecoder(MFH264Decoder *ctx, unsigned char *sps, size_t sp
 
     IMFMediaType_SetGUID(ctx->inputType, &MF_MT_MAJOR_TYPE, &MFMediaType_Video);
     IMFMediaType_SetGUID(ctx->inputType, &MF_MT_SUBTYPE, &MFVideoFormat_H264);
-    MFSetAttributeSize(ctx->inputType, &MF_MT_FRAME_SIZE, ctx->width, ctx->height);
-    MFSetAttributeRatio(ctx->inputType, &MF_MT_FRAME_RATE, 30, 1);
-    MFSetAttributeRatio(ctx->inputType, &MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
+    MFSetAttributeSize(ctx->inputType, MF_MT_FRAME_SIZE, ctx->width, ctx->height);
+    MFSetAttributeRatio(ctx->inputType, MF_MT_FRAME_RATE, 30, 1);
+    MFSetAttributeRatio(ctx->inputType, MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
     IMFMediaType_SetUINT32(ctx->inputType, &MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 
     hr = IMFTransform_SetInputType(ctx->transform, 0, ctx->inputType, 0);
@@ -223,9 +223,9 @@ static int mfInitializeDecoder(MFH264Decoder *ctx, unsigned char *sps, size_t sp
 
     IMFMediaType_SetGUID(ctx->outputType, &MF_MT_MAJOR_TYPE, &MFMediaType_Video);
     IMFMediaType_SetGUID(ctx->outputType, &MF_MT_SUBTYPE, &MFVideoFormat_NV12);
-    MFSetAttributeSize(ctx->outputType, &MF_MT_FRAME_SIZE, ctx->width, ctx->height);
-    MFSetAttributeRatio(ctx->outputType, &MF_MT_FRAME_RATE, 30, 1);
-    MFSetAttributeRatio(ctx->outputType, &MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
+    MFSetAttributeSize(ctx->outputType, MF_MT_FRAME_SIZE, ctx->width, ctx->height);
+    MFSetAttributeRatio(ctx->outputType, MF_MT_FRAME_RATE, 30, 1);
+    MFSetAttributeRatio(ctx->outputType, MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
     IMFMediaType_SetUINT32(ctx->outputType, &MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
 
     hr = IMFTransform_SetOutputType(ctx->transform, 0, ctx->outputType, 0);
