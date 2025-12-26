@@ -1,0 +1,74 @@
+name: H.264 Encoder Tests
+
+on:
+  push:
+    branches: [h264]
+  pull_request:
+    branches: [h264]
+
+jobs:
+  h264-test:
+    name: H.264 Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            runner: ubuntu-latest
+          - os: darwin
+            runner: macos-14
+          - os: windows
+            runner: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      # Linux: Install ffmpeg
+      - name: Install ffmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      # macOS: ffmpeg is not needed (uses VideoToolbox)
+      # But install it anyway for potential fallback testing
+      - name: Install ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install ffmpeg
+
+      # Windows: Install ffmpeg using chocolatey
+      - name: Install ffmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install ffmpeg -y
+          ffmpeg -version
+
+      # Run H.264 encoder tests (Unix)
+      - name: Run H.264 encoder tests (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          echo "=== Testing H.264 Encoder ==="
+          go test -v -timeout 120s ./pkg/adapters/h264encoder/
+          echo ""
+          echo "=== Testing H.264 Decoder ==="
+          go test -v -timeout 120s ./pkg/adapters/h264decoder/
+
+      # Run H.264 encoder tests (Windows)
+      - name: Run H.264 encoder tests (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "=== Testing H.264 Encoder ==="
+          go test -v -timeout 120s ./pkg/adapters/h264encoder/
+          echo ""
+          echo "=== Testing H.264 Decoder ==="
+          go test -v -timeout 120s ./pkg/adapters/h264decoder/
+        env:
+          CGO_ENABLED: 0

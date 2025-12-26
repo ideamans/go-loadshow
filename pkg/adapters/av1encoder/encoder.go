@@ -2,7 +2,22 @@
 package av1encoder
 
 /*
-#cgo pkg-config: aom
+// macOS arm64 (Apple Silicon)
+#cgo darwin,arm64 CFLAGS: -I/opt/homebrew/include
+#cgo darwin,arm64 LDFLAGS: /opt/homebrew/lib/libaom.a -lpthread
+
+// macOS amd64 (Intel)
+#cgo darwin,amd64 CFLAGS: -I/usr/local/include
+#cgo darwin,amd64 LDFLAGS: /usr/local/lib/libaom.a -lpthread
+
+// Linux - static linking
+#cgo linux CFLAGS: -I/usr/local/include
+#cgo linux LDFLAGS: /usr/local/lib/libaom.a -lpthread -lm
+
+// Windows - vcpkg MinGW static
+#cgo windows CFLAGS: -IC:/vcpkg/installed/x64-mingw-static/include
+#cgo windows LDFLAGS: -LC:/vcpkg/installed/x64-mingw-static/lib -laom -static -lpthread
+
 #include <aom/aom_encoder.h>
 #include <aom/aomcx.h>
 #include <stdlib.h>

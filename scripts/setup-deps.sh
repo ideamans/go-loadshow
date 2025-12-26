@@ -77,29 +77,28 @@ build_libaom_static() {
 setup_linux() {
     echo "Setting up dependencies for Linux..."
     sudo apt-get update
+    sudo apt-get install -y cmake ninja-build pkg-config git nasm ffmpeg
 
-    if [ "$STATIC" = true ]; then
-        sudo apt-get install -y cmake ninja-build pkg-config musl-tools git nasm
-        build_libaom_static "/usr/local/musl" "musl-gcc"
-    else
-        sudo apt-get install -y libaom-dev pkg-config
-    fi
+    # Always build from source for static linking
+    build_libaom_static "/usr/local" "gcc"
 }
 
 # macOS setup
 setup_darwin() {
     echo "Setting up dependencies for macOS..."
-    brew install cmake ninja pkg-config
+    brew install cmake ninja pkg-config nasm
 
-    if [ "$STATIC" = true ]; then
-        brew install nasm
-        build_libaom_static "/usr/local"
-    else
-        brew install aom
+    # Detect architecture for correct install path
+    local install_prefix="/usr/local"
+    if [ "$(uname -m)" = "arm64" ]; then
+        install_prefix="/opt/homebrew"
     fi
+
+    # Always build from source to avoid VMAF dependency
+    build_libaom_static "$install_prefix"
 }
 
-# Windows (MSYS2) setup
+# Windows (MSYS2) setup - Note: CI uses vcpkg instead
 setup_windows() {
     echo "Setting up dependencies for Windows (MSYS2)..."
 

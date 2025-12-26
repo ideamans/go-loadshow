@@ -7,7 +7,9 @@ Webページの読み込みをMP4動画として記録するCLIツール・Goラ
 ## 特徴
 
 - Webページの読み込みプロセスをスクロール動画として記録
-- AV1エンコード（libaom）による高品質・小ファイルサイズ
+- H.264動画エンコードがデフォルト（Windows/macOSではOS標準APIを使用）
+- AV1エンコードも利用可能（高品質・小ファイルサイズ）
+- **単一バイナリで配布可能**：Windows・macOSでは外部依存なし
 - デスクトップ/モバイルのプリセット設定
 - ネットワークスロットリング（低速回線のシミュレーション）
 - CPUスロットリング（低性能デバイスのシミュレーション）
@@ -48,7 +50,25 @@ make build
 
 ## 動作要件
 
-- Chrome または Chromium ブラウザ（自動検出、または `CHROME_PATH` 環境変数で指定）
+### 全プラットフォーム共通
+- Chrome または Chromium ブラウザ（Playwrightで自動検出・インストール、または `CHROME_PATH` 環境変数で指定）
+
+### プラットフォーム別の依存関係
+
+| プラットフォーム | H.264コーデック | AV1コーデック | 外部依存 |
+|-----------------|----------------|---------------|----------|
+| **Windows** | Media Foundation（OS標準） | libaom（静的リンク） | なし |
+| **macOS** | VideoToolbox（OS標準） | libaom（静的リンク） | なし |
+| **Linux** | FFmpeg（外部プロセス） | libaom（静的リンク） | FFmpegが必要（H.264使用時） |
+
+LinuxでH.264を使用する場合はFFmpegをインストールしてください：
+```bash
+# Ubuntu/Debian
+sudo apt-get install ffmpeg
+
+# またはAV1コーデックを使用（外部依存なし）
+loadshow record https://example.com -o output.mp4 --codec av1
+```
 
 ## CLIの使い方
 
@@ -86,7 +106,20 @@ loadshow record https://example.com -o output.mp4 --video-crf 20
 loadshow record https://example.com -o output.mp4 --screencast-quality 90
 ```
 
-### 動画オプション
+### 動画コーデックオプション
+
+```bash
+# H.264コーデックを使用（デフォルト、互換性が高い）
+loadshow record https://example.com -o output.mp4 --codec h264
+
+# AV1コーデックを使用（ファイルサイズが小さく、高品質）
+loadshow record https://example.com -o output.mp4 --codec av1
+
+# FFmpegのパスを指定（LinuxでH.264を使用する場合）
+loadshow record https://example.com -o output.mp4 --ffmpeg-path /usr/bin/ffmpeg
+```
+
+### 動画サイズ
 
 ```bash
 # カスタム動画サイズ
@@ -197,6 +230,8 @@ loadshow record https://example.com -o output.mp4 -d --debug-dir ./debug
   動画と品質:
     -W, --width INT            出力動画の幅
     -H, --height INT           出力動画の高さ
+        --codec STRING         動画コーデック: h264, av1（デフォルト: h264）
+        --ffmpeg-path STRING   FFmpeg実行ファイルのパス（LinuxでH.264使用時）
         --video-crf INT        動画CRF値（0-63、品質プリセットを上書き）
         --screencast-quality INT  スクリーンキャストJPEG品質（0-100、プリセットを上書き）
         --outro-ms INT         最終フレーム保持時間（ミリ秒）
@@ -230,6 +265,8 @@ loadshow record https://example.com -o output.mp4 -d --debug-dir ./debug
         --gap INT          動画間の隙間（ピクセル、デフォルト: 10）
 
   動画と品質:
+        --codec STRING     動画コーデック: h264, av1（デフォルト: h264）
+        --ffmpeg-path STR  FFmpeg実行ファイルのパス（LinuxでH.264使用時）
         --video-crf INT    動画CRF値（0-63、品質プリセットを上書き）
 ```
 
@@ -253,7 +290,7 @@ import (
     "log"
     "runtime"
 
-    "github.com/user/loadshow/pkg/adapters/av1encoder"
+    "github.com/user/loadshow/pkg/adapters/h264encoder"  // AV1の場合は av1encoder
     "github.com/user/loadshow/pkg/adapters/chromebrowser"
     "github.com/user/loadshow/pkg/adapters/capturehtml"
     "github.com/user/loadshow/pkg/adapters/filesink"
@@ -288,7 +325,7 @@ func main() {
     renderer := ggrenderer.New()
     browser := chromebrowser.New()
     htmlCapturer := capturehtml.New()
-    encoder := av1encoder.New()
+    encoder := h264encoder.New()  // OS標準API（Windows/macOS）またはFFmpeg（Linux）を使用
     sink := nullsink.New()
     log := logger.NewConsole(ports.LogLevelInfo)
 
@@ -371,8 +408,8 @@ import (
     "context"
     "log"
 
-    "github.com/user/loadshow/pkg/adapters/av1decoder"
-    "github.com/user/loadshow/pkg/adapters/av1encoder"
+    "github.com/user/loadshow/pkg/adapters/h264decoder"  // AV1の場合は av1decoder
+    "github.com/user/loadshow/pkg/adapters/h264encoder"  // AV1の場合は av1encoder
     "github.com/user/loadshow/pkg/adapters/logger"
     "github.com/user/loadshow/pkg/adapters/osfilesystem"
     "github.com/user/loadshow/pkg/juxtapose"
@@ -391,10 +428,10 @@ func main() {
     }
 
     // またはStage APIを使用してより詳細に制御
-    decoder := av1decoder.NewMP4Reader()
+    decoder := h264decoder.NewMP4Reader()  // OS標準APIまたはFFmpegを使用
     defer decoder.Close()
 
-    encoder := av1encoder.New()
+    encoder := h264encoder.New()  // OS標準APIまたはFFmpegを使用
     fs := osfilesystem.New()
     log := logger.NewConsole(ports.LogLevelInfo)
 
@@ -492,8 +529,10 @@ pkg/
 │   └── encode/      # 動画エンコード
 ├── ports/           # インターフェース定義（ポート）
 ├── adapters/        # インターフェース実装（アダプタ）
-│   ├── av1encoder/  # AV1動画エンコード
-│   ├── av1decoder/  # AV1動画デコード
+│   ├── av1encoder/  # AV1動画エンコード（libaom、静的リンク）
+│   ├── av1decoder/  # AV1動画デコード（libaom、静的リンク）
+│   ├── h264encoder/ # H.264エンコード（OS標準APIまたはFFmpeg）
+│   ├── h264decoder/ # H.264デコード（OS標準APIまたはFFmpeg）
 │   ├── chromebrowser/
 │   ├── ggrenderer/
 │   └── ...

@@ -16,6 +16,8 @@ import (
 	"github.com/user/loadshow/pkg/adapters/chromebrowser"
 	"github.com/user/loadshow/pkg/adapters/filesink"
 	"github.com/user/loadshow/pkg/adapters/ggrenderer"
+	"github.com/user/loadshow/pkg/adapters/h264decoder"
+	"github.com/user/loadshow/pkg/adapters/h264encoder"
 	"github.com/user/loadshow/pkg/adapters/logger"
 	"github.com/user/loadshow/pkg/adapters/nullsink"
 	"github.com/user/loadshow/pkg/adapters/osfilesystem"
@@ -160,6 +162,148 @@ func TestCompositeToEncode(t *testing.T) {
 	if string(encodeResult.VideoData[4:8]) != "ftyp" {
 		t.Error("expected ftyp signature in video data")
 	}
+}
+
+// TestCompositeToEncodeH264 tests the composite → encode pipeline with H.264 codec
+func TestCompositeToEncodeH264(t *testing.T) {
+	if !h264encoder.IsAvailable() {
+		t.Skip("H.264 encoder not available")
+	}
+
+	// Create composed frames
+	composedFrames := make([]pipeline.ComposedFrame, 10)
+	for i := 0; i < 10; i++ {
+		img := image.NewRGBA(image.Rect(0, 0, 256, 320))
+		// Fill with gradient
+		for y := 0; y < 320; y++ {
+			for x := 0; x < 256; x++ {
+				c := color.RGBA{
+					R: uint8(x),
+					G: uint8(y % 256),
+					B: uint8((i * 25) % 256),
+					A: 255,
+				}
+				img.Set(x, y, c)
+			}
+		}
+		composedFrames[i] = pipeline.ComposedFrame{
+			TimestampMs: i * 100,
+			Image:       img,
+		}
+	}
+
+	// Create encode stage with H.264
+	encoder := h264encoder.New()
+	encodeStage := encode.NewStage(encoder, logger.NewNoop())
+
+	encodeInput := pipeline.EncodeInput{
+		Frames:   composedFrames,
+		OutroMs:  500,
+		VideoCRF: 40,
+		Bitrate:  1000,
+		FPS:      30.0,
+	}
+
+	encodeResult, err := encodeStage.Execute(context.Background(), encodeInput)
+	if err != nil {
+		t.Fatalf("Encode stage failed: %v", err)
+	}
+
+	// Verify encode result
+	if len(encodeResult.VideoData) == 0 {
+		t.Error("expected non-empty video data")
+	}
+
+	// Verify it's a valid MP4
+	if len(encodeResult.VideoData) < 8 {
+		t.Fatal("video data too short")
+	}
+	if string(encodeResult.VideoData[4:8]) != "ftyp" {
+		t.Error("expected ftyp signature in video data")
+	}
+
+	t.Logf("H.264 encoded video: %d bytes", len(encodeResult.VideoData))
+}
+
+// TestFullPipelineWithH264 tests the full pipeline with H.264 codec
+func TestFullPipelineWithH264(t *testing.T) {
+	if !h264encoder.IsAvailable() {
+		t.Skip("H.264 encoder not available")
+	}
+
+	// Create all stages with real adapters except browser
+	layoutStage := layout.NewStage()
+	renderer := ggrenderer.New()
+	encoder := h264encoder.New()
+
+	// Layout
+	layoutInput := pipeline.LayoutInput{
+		CanvasWidth:    256,
+		CanvasHeight:   320,
+		Columns:        2,
+		Gap:            10,
+		Padding:        10,
+		BorderWidth:    1,
+		Indent:         10,
+		Outdent:        10,
+		BannerHeight:   0,
+		ProgressHeight: 8,
+	}
+
+	layoutResult, err := layoutStage.Execute(context.Background(), layoutInput)
+	if err != nil {
+		t.Fatalf("Layout failed: %v", err)
+	}
+
+	// Create mock raw frames
+	rawFrames := createFakeRawFrames(5, layoutResult.Scroll.Width, layoutResult.Scroll.Height)
+
+	// Composite
+	compositeStage := composite.NewStage(renderer, nullsink.New(), logger.NewNoop(), 2)
+	compositeInput := pipeline.CompositeInput{
+		RawFrames:    rawFrames,
+		Layout:       layoutResult,
+		Theme:        pipeline.DefaultCompositeTheme(),
+		ShowProgress: true,
+		TotalTimeMs:  500,
+		TotalBytes:   50000,
+	}
+
+	compositeResult, err := compositeStage.Execute(context.Background(), compositeInput)
+	if err != nil {
+		t.Fatalf("Composite failed: %v", err)
+	}
+
+	// Encode
+	encodeStage := encode.NewStage(encoder, logger.NewNoop())
+	encodeInput := pipeline.EncodeInput{
+		Frames:   compositeResult.Frames,
+		OutroMs:  200,
+		VideoCRF: 45,
+		FPS:      30.0,
+	}
+
+	encodeResult, err := encodeStage.Execute(context.Background(), encodeInput)
+	if err != nil {
+		t.Fatalf("Encode failed: %v", err)
+	}
+
+	// Verify output
+	if len(encodeResult.VideoData) == 0 {
+		t.Error("expected video output")
+	}
+
+	// Decode with H.264 decoder and verify frame count
+	frames, err := h264decoder.ExtractFrames(encodeResult.VideoData)
+	if err != nil {
+		t.Fatalf("ExtractFrames failed: %v", err)
+	}
+
+	if len(frames) < len(rawFrames) {
+		t.Errorf("expected at least %d frames, got %d", len(rawFrames), len(frames))
+	}
+
+	t.Logf("H.264 full pipeline: %d bytes, %d frames", len(encodeResult.VideoData), len(frames))
 }
 
 // TestBannerStageWithRealCapturer tests the banner stage with real HTML capturer

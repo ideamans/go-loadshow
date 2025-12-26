@@ -1,0 +1,144 @@
+name: Windows Test
+
+on:
+  push:
+    branches: [windows]
+  pull_request:
+    branches: [windows]
+
+jobs:
+  unit-test:
+    name: Windows Unit Tests
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install MinGW-w64
+        run: |
+          choco install mingw -y
+          echo "C:\ProgramData\mingw64\mingw64\bin" >> $env:GITHUB_PATH
+        shell: pwsh
+
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:/vcpkg/installed
+            C:/vcpkg/packages
+          key: vcpkg-windows-x64-mingw-static-aom-${{ hashFiles('.github/workflows/windows-test.yml') }}
+          restore-keys: |
+            vcpkg-windows-x64-mingw-static-aom-
+
+      - name: Install libaom via vcpkg (MinGW static)
+        run: |
+          vcpkg install aom:x64-mingw-static
+        shell: pwsh
+
+      - name: Run unit tests
+        run: |
+          $env:CGO_ENABLED = "1"
+          $env:CC = "gcc"
+          go test -v -race ./pkg/...
+        shell: pwsh
+
+  integration-test:
+    name: Windows Integration Tests
+    runs-on: windows-latest
+    needs: unit-test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install MinGW-w64
+        run: |
+          choco install mingw -y
+          echo "C:\ProgramData\mingw64\mingw64\bin" >> $env:GITHUB_PATH
+        shell: pwsh
+
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:/vcpkg/installed
+            C:/vcpkg/packages
+          key: vcpkg-windows-x64-mingw-static-aom-${{ hashFiles('.github/workflows/windows-test.yml') }}
+          restore-keys: |
+            vcpkg-windows-x64-mingw-static-aom-
+
+      - name: Install libaom via vcpkg (MinGW static)
+        run: |
+          vcpkg install aom:x64-mingw-static
+        shell: pwsh
+
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Run integration tests
+        run: |
+          $env:CGO_ENABLED = "1"
+          $env:CC = "gcc"
+          go test -v -race -tags=integration ./pkg/...
+        shell: pwsh
+
+  e2e-test:
+    name: Windows E2E Tests
+    runs-on: windows-latest
+    needs: integration-test
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install MinGW-w64
+        run: |
+          choco install mingw -y
+          echo "C:\ProgramData\mingw64\mingw64\bin" >> $env:GITHUB_PATH
+        shell: pwsh
+
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:/vcpkg/installed
+            C:/vcpkg/packages
+          key: vcpkg-windows-x64-mingw-static-aom-${{ hashFiles('.github/workflows/windows-test.yml') }}
+          restore-keys: |
+            vcpkg-windows-x64-mingw-static-aom-
+
+      - name: Install libaom via vcpkg (MinGW static)
+        run: |
+          vcpkg install aom:x64-mingw-static
+        shell: pwsh
+
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Run E2E tests
+        run: |
+          $env:CGO_ENABLED = "1"
+          $env:CC = "gcc"
+          go test -v -race -tags=e2e ./pkg/...
+        shell: pwsh

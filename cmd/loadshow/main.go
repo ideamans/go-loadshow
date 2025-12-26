@@ -21,6 +21,8 @@ import (
 	"github.com/user/loadshow/pkg/adapters/chromebrowser"
 	"github.com/user/loadshow/pkg/adapters/filesink"
 	"github.com/user/loadshow/pkg/adapters/ggrenderer"
+	"github.com/user/loadshow/pkg/adapters/h264decoder"
+	"github.com/user/loadshow/pkg/adapters/h264encoder"
 	"github.com/user/loadshow/pkg/adapters/logger"
 	"github.com/user/loadshow/pkg/adapters/nullsink"
 	"github.com/user/loadshow/pkg/adapters/osfilesystem"
@@ -280,6 +282,17 @@ func recordCommand() *cli.Command {
 			},
 
 			// ===== 7. Video and Quality =====
+			&cli.StringFlag{
+				Name:     "codec",
+				Value:    "h264",
+				Usage:    l10n.T("Video codec (h264, av1)"),
+				Category: l10n.T(catVideoQuality),
+			},
+			&cli.StringFlag{
+				Name:     "ffmpeg-path",
+				Usage:    l10n.T("Path to ffmpeg executable (Linux only, for H.264)"),
+				Category: l10n.T(catVideoQuality),
+			},
 			&cli.IntFlag{
 				Name:     "width",
 				Aliases:  []string{"W"},
@@ -360,6 +373,17 @@ func juxtaposeCommand() *cli.Command {
 				Usage:    l10n.T("Quality preset (low, medium, high)"),
 				Category: l10n.T(catPreset),
 			},
+			&cli.StringFlag{
+				Name:     "codec",
+				Value:    "h264",
+				Usage:    l10n.T("Video codec (h264, av1)"),
+				Category: l10n.T(catVideoQuality),
+			},
+			&cli.StringFlag{
+				Name:     "ffmpeg-path",
+				Usage:    l10n.T("Path to ffmpeg executable (Linux only, for H.264)"),
+				Category: l10n.T(catVideoQuality),
+			},
 			&cli.IntFlag{
 				Name:     "video-crf",
 				Usage:    l10n.T("Video CRF value (0-63, lower is better, overrides quality preset)"),
@@ -412,8 +436,34 @@ func runRecord(c *cli.Context) error {
 	browser := chromebrowser.New()
 	htmlCapturer := capturehtml.New()
 
-	// Create AV1 encoder
-	encoder := av1encoder.New()
+	// Set custom ffmpeg path if specified (for Linux H.264)
+	if ffmpegPath := c.String("ffmpeg-path"); ffmpegPath != "" {
+		h264encoder.SetFFmpegPath(ffmpegPath)
+		h264decoder.SetFFmpegPath(ffmpegPath)
+	}
+
+	// Select encoder based on --codec option
+	var encoder ports.VideoEncoder
+	var codecName string
+	requestedCodec := c.String("codec")
+
+	switch requestedCodec {
+	case "av1":
+		encoder = av1encoder.New()
+		codecName = "AV1"
+	case "h264":
+		if h264encoder.IsAvailable() {
+			encoder = h264encoder.New()
+			codecName = "H.264"
+		} else {
+			// Fallback to AV1 if H.264 is not available (e.g., no ffmpeg on Linux)
+			encoder = av1encoder.New()
+			codecName = "AV1"
+			log.Warn(l10n.T("H.264 encoder not available (ffmpeg not found), falling back to AV1"))
+		}
+	default:
+		return fmt.Errorf("unknown codec: %s (supported: h264, av1)", requestedCodec)
+	}
 
 	// Create debug sink
 	var sink ports.DebugSink
@@ -459,7 +509,7 @@ func runRecord(c *cli.Context) error {
 	orchConfig := cfg.ToOrchestratorConfig(url, c.String("output"))
 
 	// Print start message
-	log.Info(l10n.F("Recording %s (%s preset)...", url, c.String("preset")))
+	log.Info(l10n.F("Recording %s (%s preset, %s codec)...", url, c.String("preset"), codecName))
 
 	// Run pipeline
 	if err := orch.Run(ctx, orchConfig); err != nil {
@@ -600,8 +650,39 @@ func runJuxtapose(c *cli.Context) error {
 
 	// Create adapters
 	fs := osfilesystem.New()
-	decoder := av1decoder.NewMP4Reader()
-	encoder := av1encoder.New()
+
+	// Set custom ffmpeg path if specified (for Linux H.264)
+	if ffmpegPath := c.String("ffmpeg-path"); ffmpegPath != "" {
+		h264encoder.SetFFmpegPath(ffmpegPath)
+		h264decoder.SetFFmpegPath(ffmpegPath)
+	}
+
+	// Select encoder and decoder based on --codec option
+	var encoder ports.VideoEncoder
+	var decoder ports.VideoDecoder
+	var codecName string
+	requestedCodec := c.String("codec")
+
+	switch requestedCodec {
+	case "av1":
+		encoder = av1encoder.New()
+		decoder = av1decoder.NewMP4Reader()
+		codecName = "AV1"
+	case "h264":
+		if h264encoder.IsAvailable() {
+			encoder = h264encoder.New()
+			decoder = h264decoder.NewMP4Reader()
+			codecName = "H.264"
+		} else {
+			// Fallback to AV1 if H.264 is not available (e.g., no ffmpeg on Linux)
+			encoder = av1encoder.New()
+			decoder = av1decoder.NewMP4Reader()
+			codecName = "AV1"
+			log.Warn(l10n.T("H.264 encoder not available (ffmpeg not found), falling back to AV1"))
+		}
+	default:
+		return fmt.Errorf("unknown codec: %s (supported: h264, av1)", requestedCodec)
+	}
 
 	// Create juxtapose options
 	opts := juxtapose.Options{
@@ -615,7 +696,7 @@ func runJuxtapose(c *cli.Context) error {
 	stage := juxtapose.New(decoder, encoder, fs, log, opts)
 
 	log.Info(l10n.F("Creating comparison video: %s + %s → %s", left, right, output))
-	log.Info(l10n.F("Encoding video with CRF %d", videoCRF))
+	log.Info(l10n.F("Encoding video with CRF %d (%s codec)", videoCRF, codecName))
 
 	result, err := stage.Execute(ctx, juxtapose.Input{
 		LeftPath:   left,
