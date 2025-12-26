@@ -310,6 +310,13 @@ static int mfDecodeFrame(MFH264Decoder *ctx, unsigned char *data, size_t size) {
 
     hr = IMFTransform_ProcessOutput(ctx->transform, 0, 1, &outputData, &status);
 
+    // MF_E_TRANSFORM_NEED_MORE_INPUT is not an error - decoder just needs more frames
+    if (hr == MF_E_TRANSFORM_NEED_MORE_INPUT) {
+        IMFMediaBuffer_Release(outputBuffer);
+        IMFSample_Release(outputSample);
+        return 0;  // Success, but no output yet
+    }
+
     if (SUCCEEDED(hr)) {
         // Extract decoded frame
         BYTE *outData = NULL;
@@ -432,8 +439,9 @@ func (d *mediaFoundationDecoder) decodeFrame(data []byte) (image.Image, error) {
 	height := int(C.mfGetOutputHeight(d.ctx))
 	outputData := C.mfGetOutputData(d.ctx)
 
+	// No output yet (decoder needs more input) - return nil without error
 	if width == 0 || height == 0 || outputData == nil {
-		return nil, ErrDecodeFailed
+		return nil, nil
 	}
 
 	// Create Go image from output data
