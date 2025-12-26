@@ -7,7 +7,9 @@ A CLI tool and Go library that records web page loading as MP4 video for web per
 ## Features
 
 - Records web page loading process as scrolling video
-- AV1 video encoding (via libaom) for high quality at small file sizes
+- H.264 video encoding by default (uses OS native APIs on Windows/macOS)
+- AV1 video encoding available for high quality at small file sizes
+- **Single binary distribution**: No external dependencies on Windows and macOS
 - Desktop and mobile presets for quick configuration
 - Network throttling (simulate slow connections)
 - CPU throttling (simulate slower devices)
@@ -48,7 +50,25 @@ make build
 
 ## Requirements
 
-- Chrome or Chromium browser (automatically detected, or set `CHROME_PATH`)
+### All Platforms
+- Chrome or Chromium browser (automatically detected via Playwright, or set `CHROME_PATH`)
+
+### Platform-Specific Dependencies
+
+| Platform | H.264 Codec | AV1 Codec | External Dependencies |
+|----------|-------------|-----------|----------------------|
+| **Windows** | Media Foundation (OS built-in) | libaom (static linked) | None |
+| **macOS** | VideoToolbox (OS built-in) | libaom (static linked) | None |
+| **Linux** | FFmpeg (external) | libaom (static linked) | FFmpeg required for H.264 |
+
+On Linux, install FFmpeg for H.264 support:
+```bash
+# Ubuntu/Debian
+sudo apt-get install ffmpeg
+
+# Or use AV1 codec (no external dependencies)
+loadshow record https://example.com -o output.mp4 --codec av1
+```
 
 ## CLI Usage
 
@@ -86,7 +106,20 @@ loadshow record https://example.com -o output.mp4 --video-crf 20
 loadshow record https://example.com -o output.mp4 --screencast-quality 90
 ```
 
-### Video Options
+### Video Codec Options
+
+```bash
+# Use H.264 codec (default, best compatibility)
+loadshow record https://example.com -o output.mp4 --codec h264
+
+# Use AV1 codec (smaller file size, better quality)
+loadshow record https://example.com -o output.mp4 --codec av1
+
+# Specify FFmpeg path (Linux only, for H.264)
+loadshow record https://example.com -o output.mp4 --ffmpeg-path /usr/bin/ffmpeg
+```
+
+### Video Dimensions
 
 ```bash
 # Custom video dimensions
@@ -197,6 +230,8 @@ Flags:
   Video and Quality:
     -W, --width INT            Output video width
     -H, --height INT           Output video height
+        --codec STRING         Video codec: h264, av1 (default: h264)
+        --ffmpeg-path STRING   Path to FFmpeg executable (Linux H.264 only)
         --video-crf INT        Video CRF (0-63, overrides quality preset)
         --screencast-quality INT  Screencast JPEG quality (0-100, overrides preset)
         --outro-ms INT         Duration to hold final frame (ms)
@@ -230,6 +265,8 @@ Flags:
         --gap INT          Gap between videos in pixels (default: 10)
 
   Video and Quality:
+        --codec STRING     Video codec: h264, av1 (default: h264)
+        --ffmpeg-path STR  Path to FFmpeg executable (Linux H.264 only)
         --video-crf INT    Video CRF (0-63, overrides quality preset)
 ```
 
@@ -253,7 +290,7 @@ import (
     "log"
     "runtime"
 
-    "github.com/user/loadshow/pkg/adapters/av1encoder"
+    "github.com/user/loadshow/pkg/adapters/h264encoder"  // or av1encoder for AV1
     "github.com/user/loadshow/pkg/adapters/chromebrowser"
     "github.com/user/loadshow/pkg/adapters/capturehtml"
     "github.com/user/loadshow/pkg/adapters/filesink"
@@ -288,7 +325,7 @@ func main() {
     renderer := ggrenderer.New()
     browser := chromebrowser.New()
     htmlCapturer := capturehtml.New()
-    encoder := av1encoder.New()
+    encoder := h264encoder.New()  // Uses OS native API (Windows/macOS) or FFmpeg (Linux)
     sink := nullsink.New()
     log := logger.NewConsole(ports.LogLevelInfo)
 
@@ -371,8 +408,8 @@ import (
     "context"
     "log"
 
-    "github.com/user/loadshow/pkg/adapters/av1decoder"
-    "github.com/user/loadshow/pkg/adapters/av1encoder"
+    "github.com/user/loadshow/pkg/adapters/h264decoder"  // or av1decoder for AV1
+    "github.com/user/loadshow/pkg/adapters/h264encoder"  // or av1encoder for AV1
     "github.com/user/loadshow/pkg/adapters/logger"
     "github.com/user/loadshow/pkg/adapters/osfilesystem"
     "github.com/user/loadshow/pkg/juxtapose"
@@ -391,10 +428,10 @@ func main() {
     }
 
     // Or use Stage API for more control
-    decoder := av1decoder.NewMP4Reader()
+    decoder := h264decoder.NewMP4Reader()  // Uses OS native API or FFmpeg
     defer decoder.Close()
 
-    encoder := av1encoder.New()
+    encoder := h264encoder.New()  // Uses OS native API or FFmpeg
     fs := osfilesystem.New()
     log := logger.NewConsole(ports.LogLevelInfo)
 
@@ -492,8 +529,10 @@ pkg/
 │   └── encode/      # Video encoding
 ├── ports/           # Interface definitions (ports)
 ├── adapters/        # Interface implementations (adapters)
-│   ├── av1encoder/  # AV1 video encoding
-│   ├── av1decoder/  # AV1 video decoding
+│   ├── av1encoder/  # AV1 video encoding (libaom, static linked)
+│   ├── av1decoder/  # AV1 video decoding (libaom, static linked)
+│   ├── h264encoder/ # H.264 encoding (OS native or FFmpeg)
+│   ├── h264decoder/ # H.264 decoding (OS native or FFmpeg)
 │   ├── chromebrowser/
 │   ├── ggrenderer/
 │   └── ...
