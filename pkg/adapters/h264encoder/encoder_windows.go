@@ -6,7 +6,6 @@ package h264encoder
 #cgo CFLAGS: -DCOBJMACROS
 #cgo LDFLAGS: -lmfplat -lmfuuid -lole32 -lmf -lmfreadwrite -lshlwapi
 
-#define COBJMACROS
 #include <stdint.h>
 #include <windows.h>
 #include <mfapi.h>
@@ -546,4 +545,9 @@ func (e *mediaFoundationEncoder) close() {
 		e.encoder = nil
 	}
 	e.initialized = false
+}
+
+// checkPlatformAvailability returns true on Windows as Media Foundation is always available.
+func checkPlatformAvailability() bool {
+	return true
 }

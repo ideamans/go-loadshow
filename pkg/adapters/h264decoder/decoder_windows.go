@@ -6,7 +6,6 @@ package h264decoder
 #cgo CFLAGS: -DCOBJMACROS
 #cgo LDFLAGS: -lmfplat -lmfuuid -lole32 -lmf -lmfreadwrite -lshlwapi
 
-#define COBJMACROS
 #include <stdint.h>
 #include <windows.h>
 #include <mfapi.h>
