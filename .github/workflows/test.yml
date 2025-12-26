@@ -38,15 +38,29 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Setup MSYS2 (Windows)
+      - name: Setup MinGW-w64 (Windows)
         if: runner.os == 'Windows'
-        uses: msys2/setup-msys2@v2
+        uses: egor-tensin/setup-mingw@v2
         with:
-          msystem: UCRT64
-          update: true
-          install: >-
-            make
-            mingw-w64-ucrt-x86_64-go
+          platform: x64
+
+      - name: Cache vcpkg (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:/vcpkg/installed
+            C:/vcpkg/packages
+          key: vcpkg-windows-x64-aom-${{ hashFiles('.github/workflows/test.yml') }}
+          restore-keys: |
+            vcpkg-windows-x64-aom-
+
+      - name: Install libaom via vcpkg (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install aom:x64-windows
+          echo "PKG_CONFIG_PATH=C:/vcpkg/installed/x64-windows/lib/pkgconfig" >> $env:GITHUB_ENV
+        shell: pwsh
 
       - name: Install dependencies and run tests (Unix)
         if: runner.os != 'Windows'
@@ -56,11 +70,12 @@ jobs:
 
       - name: Install dependencies and run tests (Windows)
         if: runner.os == 'Windows'
-        shell: msys2 {0}
         run: |
-          export PATH="/ucrt64/bin:$PATH"
-          make deps
-          make unit-test
+          $env:CGO_ENABLED = "1"
+          $env:CC = "gcc"
+          $env:PKG_CONFIG_PATH = "C:/vcpkg/installed/x64-windows/lib/pkgconfig"
+          go test -v -race ./pkg/...
+        shell: pwsh
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -96,15 +111,29 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Setup MSYS2 (Windows)
+      - name: Setup MinGW-w64 (Windows)
         if: runner.os == 'Windows'
-        uses: msys2/setup-msys2@v2
+        uses: egor-tensin/setup-mingw@v2
         with:
-          msystem: UCRT64
-          update: true
-          install: >-
-            make
-            mingw-w64-ucrt-x86_64-go
+          platform: x64
+
+      - name: Cache vcpkg (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:/vcpkg/installed
+            C:/vcpkg/packages
+          key: vcpkg-windows-x64-aom-${{ hashFiles('.github/workflows/test.yml') }}
+          restore-keys: |
+            vcpkg-windows-x64-aom-
+
+      - name: Install libaom via vcpkg (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install aom:x64-windows
+          echo "PKG_CONFIG_PATH=C:/vcpkg/installed/x64-windows/lib/pkgconfig" >> $env:GITHUB_ENV
+        shell: pwsh
 
       - name: Install Chrome
         uses: browser-actions/setup-chrome@v1
@@ -119,11 +148,12 @@ jobs:
 
       - name: Install dependencies and run tests (Windows)
         if: runner.os == 'Windows'
-        shell: msys2 {0}
         run: |
-          export PATH="/ucrt64/bin:$PATH"
-          make deps
-          make integration-test
+          $env:CGO_ENABLED = "1"
+          $env:CC = "gcc"
+          $env:PKG_CONFIG_PATH = "C:/vcpkg/installed/x64-windows/lib/pkgconfig"
+          go test -v -race -tags=integration ./pkg/...
+        shell: pwsh
 
   e2e-test:
     name: E2E Tests (${{ matrix.os }})
@@ -151,15 +181,29 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Setup MSYS2 (Windows)
+      - name: Setup MinGW-w64 (Windows)
         if: runner.os == 'Windows'
-        uses: msys2/setup-msys2@v2
+        uses: egor-tensin/setup-mingw@v2
         with:
-          msystem: UCRT64
-          update: true
-          install: >-
-            make
-            mingw-w64-ucrt-x86_64-go
+          platform: x64
+
+      - name: Cache vcpkg (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:/vcpkg/installed
+            C:/vcpkg/packages
+          key: vcpkg-windows-x64-aom-${{ hashFiles('.github/workflows/test.yml') }}
+          restore-keys: |
+            vcpkg-windows-x64-aom-
+
+      - name: Install libaom via vcpkg (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install aom:x64-windows
+          echo "PKG_CONFIG_PATH=C:/vcpkg/installed/x64-windows/lib/pkgconfig" >> $env:GITHUB_ENV
+        shell: pwsh
 
       - name: Install Chrome
         uses: browser-actions/setup-chrome@v1
@@ -174,8 +218,9 @@ jobs:
 
       - name: Install dependencies and run tests (Windows)
         if: runner.os == 'Windows'
-        shell: msys2 {0}
         run: |
-          export PATH="/ucrt64/bin:$PATH"
-          make deps
-          make e2e-test
+          $env:CGO_ENABLED = "1"
+          $env:CC = "gcc"
+          $env:PKG_CONFIG_PATH = "C:/vcpkg/installed/x64-windows/lib/pkgconfig"
+          go test -v -race -tags=e2e ./pkg/...
+        shell: pwsh

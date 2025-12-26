@@ -79,10 +79,10 @@ setup_linux() {
     sudo apt-get update
 
     if [ "$STATIC" = true ]; then
-        sudo apt-get install -y cmake ninja-build pkg-config musl-tools git nasm
+        sudo apt-get install -y cmake ninja-build pkg-config musl-tools git nasm ffmpeg
         build_libaom_static "/usr/local/musl" "musl-gcc"
     else
-        sudo apt-get install -y libaom-dev pkg-config
+        sudo apt-get install -y libaom-dev pkg-config ffmpeg
     fi
 }
 
@@ -99,7 +99,7 @@ setup_darwin() {
     fi
 }
 
-# Windows (MSYS2) setup
+# Windows (MSYS2) setup - Note: CI uses vcpkg instead
 setup_windows() {
     echo "Setting up dependencies for Windows (MSYS2)..."
 
