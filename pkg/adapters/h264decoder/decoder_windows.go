@@ -155,18 +155,6 @@ static int mfExtractSPSPPS(unsigned char *data, size_t size,
     return (*sps != NULL && *pps != NULL) ? 0 : -1;
 }
 
-// Parse SPS to get width/height
-static int parseSPSDimensions(unsigned char *sps, size_t spsSize, int *width, int *height) {
-    if (spsSize < 4) return -1;
-
-    // Simplified SPS parsing - just use common defaults
-    // Real implementation would need full SPS parsing
-    *width = 1920;
-    *height = 1080;
-
-    return 0;
-}
-
 static MFH264Decoder* mfCreateDecoder() {
     if (FAILED(initMFDecoder())) {
         return NULL;
@@ -178,25 +166,11 @@ static MFH264Decoder* mfCreateDecoder() {
     return ctx;
 }
 
-static int mfInitializeDecoder(MFH264Decoder *ctx, unsigned char *sps, size_t spsSize,
-                                unsigned char *pps, size_t ppsSize) {
-    if (!ctx || !sps || !pps) return -1;
+static int mfInitializeDecoderWithDimensions(MFH264Decoder *ctx, int width, int height) {
+    if (!ctx || width <= 0 || height <= 0) return -1;
 
-    // Store SPS/PPS
-    if (ctx->sps) free(ctx->sps);
-    if (ctx->pps) free(ctx->pps);
-
-    ctx->sps = (unsigned char*)malloc(spsSize);
-    ctx->pps = (unsigned char*)malloc(ppsSize);
-    if (!ctx->sps || !ctx->pps) return -1;
-
-    memcpy(ctx->sps, sps, spsSize);
-    ctx->spsSize = spsSize;
-    memcpy(ctx->pps, pps, ppsSize);
-    ctx->ppsSize = ppsSize;
-
-    // Parse dimensions from SPS
-    parseSPSDimensions(sps, spsSize, &ctx->width, &ctx->height);
+    ctx->width = width;
+    ctx->height = height;
 
     // Find decoder
     HRESULT hr = findH264Decoder(&ctx->transform);
@@ -274,22 +248,7 @@ static int mfDecodeFrame(MFH264Decoder *ctx, unsigned char *data, size_t size) {
 
     ctx->outputReady = 0;
 
-    // Check for SPS/PPS and initialize if needed
-    if (!ctx->initialized) {
-        unsigned char *sps = NULL, *pps = NULL;
-        size_t spsSize = 0, ppsSize = 0;
-
-        if (mfExtractSPSPPS(data, size, &sps, &spsSize, &pps, &ppsSize) == 0) {
-            int result = mfInitializeDecoder(ctx, sps, spsSize, pps, ppsSize);
-            free(sps);
-            free(pps);
-            if (result != 0) return -1;
-        } else {
-            return -1;
-        }
-    }
-
-    if (!ctx->transform) return -1;
+    if (!ctx->initialized || !ctx->transform) return -1;
 
     // Create input sample with Annex B data
     IMFSample *inputSample = NULL;
@@ -414,11 +373,14 @@ import "C"
 import (
 	"image"
 	"unsafe"
+
+	"github.com/Eyevinn/mp4ff/avc"
 )
 
 // mediaFoundationDecoder implements H.264 decoding using Media Foundation on Windows.
 type mediaFoundationDecoder struct {
-	ctx *C.MFH264Decoder
+	ctx         *C.MFH264Decoder
+	initialized bool
 }
 
 func newPlatformDecoder() platformDecoder {
@@ -440,6 +402,20 @@ func (d *mediaFoundationDecoder) decodeFrame(data []byte) (image.Image, error) {
 
 	if len(data) == 0 {
 		return nil, ErrDecodeFailed
+	}
+
+	// Initialize decoder on first frame with SPS
+	if !d.initialized {
+		width, height, err := d.parseSPSDimensions(data)
+		if err != nil {
+			return nil, ErrDecodeFailed
+		}
+
+		result := C.mfInitializeDecoderWithDimensions(d.ctx, C.int(width), C.int(height))
+		if result != 0 {
+			return nil, ErrDecodeFailed
+		}
+		d.initialized = true
 	}
 
 	result := C.mfDecodeFrame(
@@ -473,6 +449,32 @@ func (d *mediaFoundationDecoder) close() {
 		C.mfDestroyDecoder(d.ctx)
 		d.ctx = nil
 	}
+	d.initialized = false
+}
+
+// parseSPSDimensions extracts video dimensions from SPS NAL unit in Annex B data.
+func (d *mediaFoundationDecoder) parseSPSDimensions(data []byte) (int, int, error) {
+	// Extract NAL units from Annex B format
+	nalus := avc.ExtractNalusFromByteStream(data)
+
+	for _, nalu := range nalus {
+		if len(nalu) == 0 {
+			continue
+		}
+
+		naluType := avc.GetNaluType(nalu[0])
+		if naluType == avc.NALU_SPS {
+			// Parse SPS to get dimensions
+			sps, err := avc.ParseSPSNALUnit(nalu, false)
+			if err != nil {
+				continue
+			}
+
+			return int(sps.Width), int(sps.Height), nil
+		}
+	}
+
+	return 0, 0, ErrDecodeFailed
 }
 
 // checkPlatformAvailability returns true on Windows as Media Foundation is always available.

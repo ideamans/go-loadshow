@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/user/loadshow/pkg/ports"
@@ -136,6 +137,10 @@ func TestEncoderLowQuality(t *testing.T) {
 }
 
 func TestEncoderSingleFrame(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Single frame encoding not supported on Windows Media Foundation")
+	}
+
 	enc := New()
 
 	if err := enc.Begin(100, 100, 1.0, ports.EncoderOptions{}); err != nil {
