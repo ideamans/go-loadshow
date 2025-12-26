@@ -51,17 +51,19 @@ make build
 ## Requirements
 
 ### All Platforms
+
 - Chrome or Chromium browser (automatically detected via Playwright, or set `CHROME_PATH`)
 
 ### Platform-Specific Dependencies
 
-| Platform | H.264 Codec | AV1 Codec | External Dependencies |
-|----------|-------------|-----------|----------------------|
-| **Windows** | Media Foundation (OS built-in) | libaom (static linked) | None |
-| **macOS** | VideoToolbox (OS built-in) | libaom (static linked) | None |
-| **Linux** | FFmpeg (external) | libaom (static linked) | FFmpeg required for H.264 |
+| Platform    | H.264 Codec                    | AV1 Codec              | External Dependencies      |
+|-------------|--------------------------------|------------------------|----------------------------|
+| **Windows** | Media Foundation (OS built-in) | libaom (static linked) | None                       |
+| **macOS**   | VideoToolbox (OS built-in)     | libaom (static linked) | None                       |
+| **Linux**   | FFmpeg (external)              | libaom (static linked) | FFmpeg required for H.264  |
 
 On Linux, install FFmpeg for H.264 support:
+
 ```bash
 # Ubuntu/Debian
 sudo apt-get install ffmpeg
@@ -74,7 +76,7 @@ loadshow record https://example.com -o output.mp4 --codec av1
 
 ### Commands
 
-```
+```text
 loadshow record <url> -o <output>     Record a web page loading as MP4 video
 loadshow juxtapose <left> <right> -o <output>  Create a side-by-side comparison video
 loadshow version                       Show version information
@@ -187,7 +189,7 @@ loadshow record https://example.com -o output.mp4 -d --debug-dir ./debug
 
 ### record
 
-```
+```text
 Usage: loadshow record <url> -o <output> [flags]
 
 Arguments:
@@ -247,7 +249,7 @@ Flags:
 
 ### juxtapose
 
-```
+```text
 Usage: loadshow juxtapose <left> <right> -o <output> [flags]
 
 Arguments:
@@ -274,7 +276,7 @@ Flags:
 
 loadshow can also be used as a Go library for programmatic video generation.
 
-### Installation
+### Install Package
 
 ```bash
 go get github.com/user/loadshow
@@ -492,7 +494,7 @@ make package VERSION=v1.0.0
 
 loadshow uses a pipeline architecture with dependency injection:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                      Orchestrator                           │
 ├─────────────────────────────────────────────────────────────┤
@@ -516,7 +518,7 @@ loadshow uses a pipeline architecture with dependency injection:
 
 ### Package Structure
 
-```
+```text
 pkg/
 ├── loadshow/        # High-level API with ConfigBuilder
 ├── orchestrator/    # Pipeline coordination

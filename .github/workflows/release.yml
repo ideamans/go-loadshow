@@ -39,16 +39,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
-
-      - name: Setup MSYS2 (Windows)
-        if: runner.os == 'Windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          update: true
-          install: >-
-            make
-            mingw-w64-ucrt-x86_64-go
+          cache: false  # Disable built-in caching to avoid tar extraction issues
 
       - name: Get version
         id: version
@@ -60,21 +51,123 @@ jobs:
             echo "VERSION=dev" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build and package (Unix)
+      # ===========================================
+      # Linux Build
+      # ===========================================
+      - name: Cache libaom (Linux)
+        if: runner.os == 'Linux'
+        id: cache-libaom-linux
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/libaom.a
+            /usr/local/include/aom
+          key: libaom-3.8.0-linux-${{ matrix.arch }}-v2-${{ hashFiles('scripts/setup-deps.sh') }}
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config git nasm ffmpeg
+          # Build libaom from source if not cached
+          if [ "${{ steps.cache-libaom-linux.outputs.cache-hit }}" != "true" ]; then
+            make deps
+          fi
+
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          LDFLAGS="-X main.version=${VERSION}"
+          CGO_ENABLED=1 go build -ldflags "${LDFLAGS}" -o loadshow ./cmd/loadshow
+
+      # ===========================================
+      # macOS Build
+      # ===========================================
+      - name: Cache libaom (macOS)
+        if: runner.os == 'macOS'
+        id: cache-libaom-macos
+        uses: actions/cache@v4
+        with:
+          path: |
+            /opt/homebrew/lib/libaom.a
+            /opt/homebrew/include/aom
+          key: libaom-3.8.0-darwin-arm64-v2-${{ hashFiles('scripts/setup-deps.sh') }}
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake ninja pkg-config nasm
+          # Build libaom from source if not cached
+          if [ "${{ steps.cache-libaom-macos.outputs.cache-hit }}" != "true" ]; then
+            make deps
+          fi
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          LDFLAGS="-X main.version=${VERSION}"
+          CGO_ENABLED=1 go build -ldflags "${LDFLAGS}" -o loadshow ./cmd/loadshow
+
+      # ===========================================
+      # Windows Build (using vcpkg + MinGW like test.yml)
+      # ===========================================
+      - name: Install MinGW-w64 (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install mingw -y
+          echo "C:\ProgramData\mingw64\mingw64\bin" >> $env:GITHUB_PATH
+        shell: pwsh
+
+      - name: Cache vcpkg (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:/vcpkg/installed
+            C:/vcpkg/packages
+          key: vcpkg-windows-x64-mingw-static-aom-${{ hashFiles('.github/workflows/release.yml') }}
+          restore-keys: |
+            vcpkg-windows-x64-mingw-static-aom-
+
+      - name: Install libaom via vcpkg (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install aom:x64-mingw-static
+        shell: pwsh
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $VERSION = "${{ steps.version.outputs.VERSION }}"
+          $LDFLAGS = "-X main.version=${VERSION}"
+          $env:CGO_ENABLED = "1"
+          $env:CC = "gcc"
+          go build -ldflags "${LDFLAGS}" -o loadshow.exe ./cmd/loadshow
+        shell: pwsh
+
+      # ===========================================
+      # Package
+      # ===========================================
+      - name: Package (Unix)
         if: runner.os != 'Windows'
         run: |
-          make deps-static
-          make build-static VERSION=${{ steps.version.outputs.VERSION }}
-          make package VERSION=${{ steps.version.outputs.VERSION }}
+          VERSION=${{ steps.version.outputs.VERSION }}
+          OS=${{ matrix.os }}
+          ARCH=${{ matrix.arch }}
+          ARCHIVE_NAME="loadshow_${VERSION}_${OS}_${ARCH}.tar.gz"
+          tar -czvf "${ARCHIVE_NAME}" loadshow
+          echo "Created: ${ARCHIVE_NAME}"
 
-      - name: Build and package (Windows)
+      - name: Package (Windows)
         if: runner.os == 'Windows'
-        shell: msys2 {0}
         run: |
-          export PATH="/ucrt64/bin:$PATH"
-          make deps-static
-          make build-static VERSION=${{ steps.version.outputs.VERSION }}
-          make package VERSION=${{ steps.version.outputs.VERSION }}
+          $VERSION = "${{ steps.version.outputs.VERSION }}"
+          $ARCHIVE_NAME = "loadshow_${VERSION}_windows_amd64.zip"
+          Compress-Archive -Path loadshow.exe -DestinationPath $ARCHIVE_NAME
+          Write-Host "Created: ${ARCHIVE_NAME}"
+        shell: pwsh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -118,6 +211,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
+          cache: false
 
       - name: Download binary
         uses: actions/download-artifact@v4
@@ -128,6 +222,12 @@ jobs:
       - name: Make binary executable (Unix)
         if: runner.os != 'Windows'
         run: chmod +x ./loadshow
+
+      - name: Install FFmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
 
       - name: Install Chrome (Linux amd64)
         if: runner.os == 'Linux' && matrix.arch == 'amd64'

@@ -51,17 +51,19 @@ make build
 ## 動作要件
 
 ### 全プラットフォーム共通
+
 - Chrome または Chromium ブラウザ（Playwrightで自動検出・インストール、または `CHROME_PATH` 環境変数で指定）
 
 ### プラットフォーム別の依存関係
 
-| プラットフォーム | H.264コーデック | AV1コーデック | 外部依存 |
-|-----------------|----------------|---------------|----------|
-| **Windows** | Media Foundation（OS標準） | libaom（静的リンク） | なし |
-| **macOS** | VideoToolbox（OS標準） | libaom（静的リンク） | なし |
-| **Linux** | FFmpeg（外部プロセス） | libaom（静的リンク） | FFmpegが必要（H.264使用時） |
+| プラットフォーム | H.264コーデック            | AV1コーデック        | 外部依存                     |
+|-----------------|---------------------------|---------------------|------------------------------|
+| **Windows**     | Media Foundation（OS標準） | libaom（静的リンク） | なし                          |
+| **macOS**       | VideoToolbox（OS標準）     | libaom（静的リンク） | なし                          |
+| **Linux**       | FFmpeg（外部プロセス）     | libaom（静的リンク） | FFmpegが必要（H.264使用時）   |
 
 LinuxでH.264を使用する場合はFFmpegをインストールしてください：
+
 ```bash
 # Ubuntu/Debian
 sudo apt-get install ffmpeg
@@ -74,7 +76,7 @@ loadshow record https://example.com -o output.mp4 --codec av1
 
 ### コマンド一覧
 
-```
+```text
 loadshow record <url> -o <output>     Webページの読み込みをMP4動画として記録
 loadshow juxtapose <left> <right> -o <output>  2つの動画を横並びで比較
 loadshow version                       バージョン情報を表示
@@ -187,7 +189,7 @@ loadshow record https://example.com -o output.mp4 -d --debug-dir ./debug
 
 ### record
 
-```
+```text
 使用法: loadshow record <url> -o <output> [flags]
 
 引数:
@@ -247,7 +249,7 @@ loadshow record https://example.com -o output.mp4 -d --debug-dir ./debug
 
 ### juxtapose
 
-```
+```text
 使用法: loadshow juxtapose <left> <right> -o <output> [flags]
 
 引数:
@@ -274,7 +276,7 @@ loadshow record https://example.com -o output.mp4 -d --debug-dir ./debug
 
 loadshowはGoライブラリとしてプログラムから動画生成を行うことも可能です。
 
-### インストール
+### パッケージのインストール
 
 ```bash
 go get github.com/user/loadshow
@@ -492,7 +494,7 @@ make package VERSION=v1.0.0
 
 loadshowは依存性注入を用いたパイプラインアーキテクチャを採用しています：
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                      Orchestrator                           │
 ├─────────────────────────────────────────────────────────────┤
@@ -516,7 +518,7 @@ loadshowは依存性注入を用いたパイプラインアーキテクチャを
 
 ### パッケージ構造
 
-```
+```text
 pkg/
 ├── loadshow/        # ConfigBuilderを含む高レベルAPI
 ├── orchestrator/    # パイプライン調整
