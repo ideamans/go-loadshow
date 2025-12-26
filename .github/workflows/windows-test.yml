@@ -32,13 +32,13 @@ jobs:
           path: |
             C:/vcpkg/installed
             C:/vcpkg/packages
-          key: vcpkg-windows-x64-static-aom-${{ hashFiles('.github/workflows/windows-test.yml') }}
+          key: vcpkg-windows-x64-mingw-static-aom-${{ hashFiles('.github/workflows/windows-test.yml') }}
           restore-keys: |
-            vcpkg-windows-x64-static-aom-
+            vcpkg-windows-x64-mingw-static-aom-
 
-      - name: Install libaom via vcpkg (static)
+      - name: Install libaom via vcpkg (MinGW static)
         run: |
-          vcpkg install aom:x64-windows-static
+          vcpkg install aom:x64-mingw-static
         shell: pwsh
 
       - name: Run unit tests
@@ -74,13 +74,13 @@ jobs:
           path: |
             C:/vcpkg/installed
             C:/vcpkg/packages
-          key: vcpkg-windows-x64-static-aom-${{ hashFiles('.github/workflows/windows-test.yml') }}
+          key: vcpkg-windows-x64-mingw-static-aom-${{ hashFiles('.github/workflows/windows-test.yml') }}
           restore-keys: |
-            vcpkg-windows-x64-static-aom-
+            vcpkg-windows-x64-mingw-static-aom-
 
-      - name: Install libaom via vcpkg (static)
+      - name: Install libaom via vcpkg (MinGW static)
         run: |
-          vcpkg install aom:x64-windows-static
+          vcpkg install aom:x64-mingw-static
         shell: pwsh
 
       - name: Install Chrome
@@ -122,13 +122,13 @@ jobs:
           path: |
             C:/vcpkg/installed
             C:/vcpkg/packages
-          key: vcpkg-windows-x64-static-aom-${{ hashFiles('.github/workflows/windows-test.yml') }}
+          key: vcpkg-windows-x64-mingw-static-aom-${{ hashFiles('.github/workflows/windows-test.yml') }}
           restore-keys: |
-            vcpkg-windows-x64-static-aom-
+            vcpkg-windows-x64-mingw-static-aom-
 
-      - name: Install libaom via vcpkg (static)
+      - name: Install libaom via vcpkg (MinGW static)
         run: |
-          vcpkg install aom:x64-windows-static
+          vcpkg install aom:x64-mingw-static
         shell: pwsh
 
       - name: Install Chrome
