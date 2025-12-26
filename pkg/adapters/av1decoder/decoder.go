@@ -2,7 +2,9 @@
 package av1decoder
 
 /*
-#cgo pkg-config: aom
+#cgo !windows pkg-config: aom
+#cgo windows CFLAGS: -IC:/vcpkg/installed/x64-windows-static/include
+#cgo windows LDFLAGS: -LC:/vcpkg/installed/x64-windows-static/lib -laom -static -lpthread
 #include <aom/aom_decoder.h>
 #include <aom/aomdx.h>
 #include <stdlib.h>
