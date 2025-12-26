@@ -193,8 +193,172 @@ func (r *MP4Reader) readFragmentedMP4(mp4File *mp4.File, reader io.ReadSeeker) (
 }
 
 func (r *MP4Reader) readProgressiveMP4(mp4File *mp4.File, reader io.ReadSeeker) ([]ports.VideoFrame, error) {
-	// Progressive MP4 is not commonly used for our generated videos
-	return nil, fmt.Errorf("progressive MP4 not supported, use fragmented MP4")
+	var frames []ports.VideoFrame
+
+	// Find video track
+	if mp4File.Moov == nil {
+		return nil, fmt.Errorf("no moov box found")
+	}
+
+	var videoTrack *mp4.TrakBox
+	var avcC *mp4.AvcCBox
+
+	for _, trak := range mp4File.Moov.Traks {
+		if trak.Mdia != nil && trak.Mdia.Hdlr != nil && trak.Mdia.Hdlr.HandlerType == "vide" {
+			videoTrack = trak
+
+			// Get avcC box for SPS/PPS
+			if trak.Mdia.Minf != nil && trak.Mdia.Minf.Stbl != nil && trak.Mdia.Minf.Stbl.Stsd != nil {
+				for _, child := range trak.Mdia.Minf.Stbl.Stsd.Children {
+					if avc1, ok := child.(*mp4.VisualSampleEntryBox); ok {
+						avcC = avc1.AvcC
+					}
+				}
+			}
+			break
+		}
+	}
+
+	if videoTrack == nil {
+		return nil, fmt.Errorf("no video track found")
+	}
+
+	// Get timescale
+	var timescale uint32 = 1000
+	if videoTrack.Mdia != nil && videoTrack.Mdia.Mdhd != nil {
+		timescale = videoTrack.Mdia.Mdhd.Timescale
+	}
+
+	// Prepare SPS/PPS in Annex B format
+	var spsPPS []byte
+	if avcC != nil {
+		for _, sps := range avcC.SPSnalus {
+			spsPPS = append(spsPPS, 0, 0, 0, 1)
+			spsPPS = append(spsPPS, sps...)
+		}
+		for _, pps := range avcC.PPSnalus {
+			spsPPS = append(spsPPS, 0, 0, 0, 1)
+			spsPPS = append(spsPPS, pps...)
+		}
+	}
+
+	// Get stbl (sample table)
+	if videoTrack.Mdia == nil || videoTrack.Mdia.Minf == nil || videoTrack.Mdia.Minf.Stbl == nil {
+		return nil, fmt.Errorf("no sample table found")
+	}
+	stbl := videoTrack.Mdia.Minf.Stbl
+
+	// Get sample count
+	if stbl.Stsz == nil {
+		return nil, fmt.Errorf("no stsz box found")
+	}
+	sampleCount := stbl.Stsz.SampleNumber
+
+	// Build sync sample set (keyframes)
+	syncSamples := make(map[uint32]bool)
+	if stbl.Stss != nil {
+		for _, sampleNr := range stbl.Stss.SampleNumber {
+			syncSamples[sampleNr] = true
+		}
+	}
+
+	// Read samples
+	for sampleNr := uint32(1); sampleNr <= sampleCount; sampleNr++ {
+		// Get sample data by reading from chunk offset
+		sample, err := getSampleData(stbl, reader, sampleNr)
+		if err != nil {
+			continue // Skip samples that can't be read
+		}
+
+		// Get decode time from stts box
+		var decodeTime uint64
+		var dur uint32
+		if stbl.Stts != nil {
+			decodeTime, dur = stbl.Stts.GetDecodeTime(sampleNr)
+		}
+		timestampMs := int(decodeTime * 1000 / uint64(timescale))
+		durationMs := int(uint64(dur) * 1000 / uint64(timescale))
+
+		// Check if keyframe
+		isKeyframe := syncSamples[sampleNr] || len(syncSamples) == 0
+
+		// Convert AVCC to Annex B format
+		annexB := avccToAnnexB(sample)
+
+		// Prepend SPS/PPS for keyframes
+		var frameData []byte
+		if isKeyframe {
+			frameData = make([]byte, len(spsPPS)+len(annexB))
+			copy(frameData, spsPPS)
+			copy(frameData[len(spsPPS):], annexB)
+		} else {
+			frameData = annexB
+		}
+
+		// Decode frame
+		img, err := r.decoder.DecodeFrame(frameData)
+		if err != nil {
+			continue // Skip frames that can't be decoded
+		}
+
+		frames = append(frames, ports.VideoFrame{
+			Image:       img,
+			TimestampMs: timestampMs,
+			Duration:    durationMs,
+		})
+	}
+
+	return frames, nil
+}
+
+// getSampleData reads sample data from a progressive MP4 file
+func getSampleData(stbl *mp4.StblBox, reader io.ReadSeeker, sampleNr uint32) ([]byte, error) {
+	if stbl.Stsc == nil || stbl.Stsz == nil {
+		return nil, fmt.Errorf("missing stsc or stsz box")
+	}
+
+	// Get chunk number and first sample in chunk
+	chunkNr, firstSampleInChunk, err := stbl.Stsc.ChunkNrFromSampleNr(int(sampleNr))
+	if err != nil {
+		return nil, fmt.Errorf("get chunk nr: %w", err)
+	}
+
+	// Get chunk offset
+	var chunkOffset uint64
+	if stbl.Stco != nil {
+		chunkOffset, err = stbl.Stco.GetOffset(chunkNr)
+		if err != nil {
+			return nil, fmt.Errorf("get chunk offset: %w", err)
+		}
+	} else if stbl.Co64 != nil {
+		if chunkNr < 1 || chunkNr > len(stbl.Co64.ChunkOffset) {
+			return nil, fmt.Errorf("chunk nr out of range")
+		}
+		chunkOffset = stbl.Co64.ChunkOffset[chunkNr-1]
+	} else {
+		return nil, fmt.Errorf("no stco or co64 box")
+	}
+
+	// Calculate offset within chunk
+	offset := chunkOffset
+	for s := uint32(firstSampleInChunk); s < sampleNr; s++ {
+		offset += uint64(stbl.Stsz.GetSampleSize(int(s)))
+	}
+
+	// Get sample size
+	sampleSize := stbl.Stsz.GetSampleSize(int(sampleNr))
+
+	// Seek and read
+	if _, err := reader.Seek(int64(offset), io.SeekStart); err != nil {
+		return nil, fmt.Errorf("seek to sample: %w", err)
+	}
+
+	data := make([]byte, sampleSize)
+	if _, err := io.ReadFull(reader, data); err != nil {
+		return nil, fmt.Errorf("read sample: %w", err)
+	}
+
+	return data, nil
 }
 
 // avccToAnnexB converts AVCC format (length-prefixed NALUs) to Annex B format (start code prefixed)
@@ -244,6 +408,121 @@ func ExtractFrames(mp4Data []byte) ([]RawFrame, error) {
 		return nil, fmt.Errorf("decode mp4: %w", err)
 	}
 
+	// Handle fragmented vs progressive MP4
+	if mp4File.IsFragmented() {
+		return extractFramesFragmented(mp4File, reader)
+	}
+	return extractFramesProgressive(mp4File, reader)
+}
+
+func extractFramesProgressive(mp4File *mp4.File, reader io.ReadSeeker) ([]RawFrame, error) {
+	var frames []RawFrame
+
+	// Find video track
+	if mp4File.Moov == nil {
+		return nil, fmt.Errorf("no moov box found")
+	}
+
+	var videoTrack *mp4.TrakBox
+	var avcC *mp4.AvcCBox
+	var timescale uint32 = 1000
+
+	for _, trak := range mp4File.Moov.Traks {
+		if trak.Mdia != nil && trak.Mdia.Hdlr != nil && trak.Mdia.Hdlr.HandlerType == "vide" {
+			videoTrack = trak
+			if trak.Mdia.Mdhd != nil {
+				timescale = trak.Mdia.Mdhd.Timescale
+			}
+
+			// Get avcC box for SPS/PPS
+			if trak.Mdia.Minf != nil && trak.Mdia.Minf.Stbl != nil && trak.Mdia.Minf.Stbl.Stsd != nil {
+				for _, child := range trak.Mdia.Minf.Stbl.Stsd.Children {
+					if avc1, ok := child.(*mp4.VisualSampleEntryBox); ok {
+						avcC = avc1.AvcC
+					}
+				}
+			}
+			break
+		}
+	}
+
+	if videoTrack == nil {
+		return nil, fmt.Errorf("no video track found")
+	}
+
+	// Prepare SPS/PPS in Annex B format
+	var spsPPS []byte
+	if avcC != nil {
+		for _, sps := range avcC.SPSnalus {
+			spsPPS = append(spsPPS, 0, 0, 0, 1)
+			spsPPS = append(spsPPS, sps...)
+		}
+		for _, pps := range avcC.PPSnalus {
+			spsPPS = append(spsPPS, 0, 0, 0, 1)
+			spsPPS = append(spsPPS, pps...)
+		}
+	}
+
+	// Get stbl (sample table)
+	if videoTrack.Mdia == nil || videoTrack.Mdia.Minf == nil || videoTrack.Mdia.Minf.Stbl == nil {
+		return nil, fmt.Errorf("no sample table found")
+	}
+	stbl := videoTrack.Mdia.Minf.Stbl
+
+	// Get sample count
+	if stbl.Stsz == nil {
+		return nil, fmt.Errorf("no stsz box found")
+	}
+	sampleCount := stbl.Stsz.SampleNumber
+
+	// Build sync sample set (keyframes)
+	syncSamples := make(map[uint32]bool)
+	if stbl.Stss != nil {
+		for _, sampleNr := range stbl.Stss.SampleNumber {
+			syncSamples[sampleNr] = true
+		}
+	}
+
+	// Read samples
+	for sampleNr := uint32(1); sampleNr <= sampleCount; sampleNr++ {
+		sample, err := getSampleData(stbl, reader, sampleNr)
+		if err != nil {
+			continue
+		}
+
+		// Get decode time from stts box
+		var decodeTime uint64
+		var dur uint32
+		if stbl.Stts != nil {
+			decodeTime, dur = stbl.Stts.GetDecodeTime(sampleNr)
+		}
+		timestampMs := int(decodeTime * 1000 / uint64(timescale))
+		durationMs := int(uint64(dur) * 1000 / uint64(timescale))
+		isKeyframe := syncSamples[sampleNr] || len(syncSamples) == 0
+
+		annexB := avccToAnnexB(sample)
+
+		var frameData []byte
+		if isKeyframe {
+			frameData = make([]byte, len(spsPPS)+len(annexB))
+			copy(frameData, spsPPS)
+			copy(frameData[len(spsPPS):], annexB)
+		} else {
+			frameData = annexB
+		}
+
+		frames = append(frames, RawFrame{
+			Data:        frameData,
+			TimestampMs: timestampMs,
+			Duration:    durationMs,
+			IsKeyframe:  isKeyframe,
+		})
+	}
+
+	return frames, nil
+}
+
+func extractFramesFragmented(mp4File *mp4.File, reader io.ReadSeeker) ([]RawFrame, error) {
 	var frames []RawFrame
 
 	// Find video track

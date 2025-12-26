@@ -44,16 +44,12 @@ jobs:
         run: |
           brew install ffmpeg
 
-      # Windows: Use MSYS2 for build environment
-      - name: Setup MSYS2 (Windows)
+      # Windows: Install ffmpeg using chocolatey
+      - name: Install ffmpeg (Windows)
         if: runner.os == 'Windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          update: true
-          install: >-
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-ffmpeg
+        run: |
+          choco install ffmpeg -y
+          ffmpeg -version
 
       # Run H.264 encoder tests (Unix)
       - name: Run H.264 encoder tests (Unix)
@@ -68,13 +64,11 @@ jobs:
       # Run H.264 encoder tests (Windows)
       - name: Run H.264 encoder tests (Windows)
         if: runner.os == 'Windows'
-        shell: msys2 {0}
         run: |
-          export PATH="/ucrt64/bin:$PATH"
-          export CGO_ENABLED=1
-          export CC=gcc
           echo "=== Testing H.264 Encoder ==="
           go test -v -timeout 120s ./pkg/adapters/h264encoder/
           echo ""
           echo "=== Testing H.264 Decoder ==="
           go test -v -timeout 120s ./pkg/adapters/h264decoder/
+        env:
+          CGO_ENABLED: 0
