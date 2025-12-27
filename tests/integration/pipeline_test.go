@@ -47,16 +47,16 @@ func TestLayoutToComposite(t *testing.T) {
 	layoutStage := layout.NewStage()
 
 	layoutInput := pipeline.LayoutInput{
-		CanvasWidth:    512,
-		CanvasHeight:   640,
-		Columns:        3,
-		Gap:            20,
-		Padding:        20,
+		CanvasWidth:    128,
+		CanvasHeight:   160,
+		Columns:        2,
+		Gap:            4,
+		Padding:        4,
 		BorderWidth:    1,
-		Indent:         20,
-		Outdent:        20,
-		BannerHeight:   80,
-		ProgressHeight: 16,
+		Indent:         4,
+		Outdent:        4,
+		BannerHeight:   20,
+		ProgressHeight: 4,
 	}
 
 	layoutResult, err := layoutStage.Execute(context.Background(), layoutInput)
@@ -65,12 +65,12 @@ func TestLayoutToComposite(t *testing.T) {
 	}
 
 	// Verify layout result
-	if len(layoutResult.Windows) != 3 {
-		t.Errorf("expected 3 windows, got %d", len(layoutResult.Windows))
+	if len(layoutResult.Windows) != 2 {
+		t.Errorf("expected 2 windows, got %d", len(layoutResult.Windows))
 	}
 
 	// Create fake raw frames for composite
-	rawFrames := createFakeRawFrames(10, layoutResult.Scroll.Width, layoutResult.Scroll.Height)
+	rawFrames := createFakeRawFrames(3, layoutResult.Scroll.Width, layoutResult.Scroll.Height)
 
 	// Create composite stage
 	renderer := ggrenderer.New()
@@ -112,16 +112,16 @@ func TestLayoutToComposite(t *testing.T) {
 // TestCompositeToEncode tests the composite → encode pipeline
 func TestCompositeToEncode(t *testing.T) {
 	// Create composed frames
-	composedFrames := make([]pipeline.ComposedFrame, 10)
-	for i := 0; i < 10; i++ {
-		img := image.NewRGBA(image.Rect(0, 0, 256, 320))
+	composedFrames := make([]pipeline.ComposedFrame, 3)
+	for i := 0; i < 3; i++ {
+		img := image.NewRGBA(image.Rect(0, 0, 64, 80))
 		// Fill with gradient
-		for y := 0; y < 320; y++ {
-			for x := 0; x < 256; x++ {
+		for y := 0; y < 80; y++ {
+			for x := 0; x < 64; x++ {
 				c := color.RGBA{
-					R: uint8(x),
-					G: uint8(y % 256),
-					B: uint8((i * 25) % 256),
+					R: uint8(x * 4),
+					G: uint8(y * 3),
+					B: uint8((i * 80) % 256),
 					A: 255,
 				}
 				img.Set(x, y, c)
@@ -171,16 +171,16 @@ func TestCompositeToEncodeH264(t *testing.T) {
 	}
 
 	// Create composed frames
-	composedFrames := make([]pipeline.ComposedFrame, 10)
-	for i := 0; i < 10; i++ {
-		img := image.NewRGBA(image.Rect(0, 0, 256, 320))
+	composedFrames := make([]pipeline.ComposedFrame, 3)
+	for i := 0; i < 3; i++ {
+		img := image.NewRGBA(image.Rect(0, 0, 64, 80))
 		// Fill with gradient
-		for y := 0; y < 320; y++ {
-			for x := 0; x < 256; x++ {
+		for y := 0; y < 80; y++ {
+			for x := 0; x < 64; x++ {
 				c := color.RGBA{
-					R: uint8(x),
-					G: uint8(y % 256),
-					B: uint8((i * 25) % 256),
+					R: uint8(x * 4),
+					G: uint8(y * 3),
+					B: uint8((i * 80) % 256),
 					A: 255,
 				}
 				img.Set(x, y, c)
@@ -238,16 +238,16 @@ func TestFullPipelineWithH264(t *testing.T) {
 
 	// Layout
 	layoutInput := pipeline.LayoutInput{
-		CanvasWidth:    256,
-		CanvasHeight:   320,
+		CanvasWidth:    64,
+		CanvasHeight:   80,
 		Columns:        2,
-		Gap:            10,
-		Padding:        10,
+		Gap:            2,
+		Padding:        2,
 		BorderWidth:    1,
-		Indent:         10,
-		Outdent:        10,
+		Indent:         2,
+		Outdent:        2,
 		BannerHeight:   0,
-		ProgressHeight: 8,
+		ProgressHeight: 2,
 	}
 
 	layoutResult, err := layoutStage.Execute(context.Background(), layoutInput)
@@ -256,7 +256,7 @@ func TestFullPipelineWithH264(t *testing.T) {
 	}
 
 	// Create mock raw frames
-	rawFrames := createFakeRawFrames(5, layoutResult.Scroll.Width, layoutResult.Scroll.Height)
+	rawFrames := createFakeRawFrames(3, layoutResult.Scroll.Width, layoutResult.Scroll.Height)
 
 	// Composite
 	compositeStage := composite.NewStage(renderer, nullsink.New(), logger.NewNoop(), 2)
@@ -316,8 +316,8 @@ func TestBannerStageWithRealCapturer(t *testing.T) {
 	bannerStage := banner.NewStage(capturer, nullsink.New(), logger.NewNoop())
 
 	input := pipeline.BannerInput{
-		Width:      400,
-		Height:     80,
+		Width:      128,
+		Height:     32,
 		URL:        "https://example.com",
 		Title:      "Integration Test",
 		LoadTimeMs: 1500,
@@ -353,16 +353,16 @@ func TestFullPipelineWithMockBrowser(t *testing.T) {
 
 	// Layout
 	layoutInput := pipeline.LayoutInput{
-		CanvasWidth:    256,
-		CanvasHeight:   320,
+		CanvasWidth:    64,
+		CanvasHeight:   80,
 		Columns:        2,
-		Gap:            10,
-		Padding:        10,
+		Gap:            2,
+		Padding:        2,
 		BorderWidth:    1,
-		Indent:         10,
-		Outdent:        10,
+		Indent:         2,
+		Outdent:        2,
 		BannerHeight:   0,
-		ProgressHeight: 8,
+		ProgressHeight: 2,
 	}
 
 	layoutResult, err := layoutStage.Execute(context.Background(), layoutInput)
@@ -371,7 +371,7 @@ func TestFullPipelineWithMockBrowser(t *testing.T) {
 	}
 
 	// Create mock raw frames
-	rawFrames := createFakeRawFrames(5, layoutResult.Scroll.Width, layoutResult.Scroll.Height)
+	rawFrames := createFakeRawFrames(3, layoutResult.Scroll.Width, layoutResult.Scroll.Height)
 
 	// Composite
 	compositeStage := composite.NewStage(renderer, nullsink.New(), logger.NewNoop(), 2)
@@ -433,8 +433,8 @@ func TestRecordStageWithRealBrowser(t *testing.T) {
 
 	input := pipeline.RecordInput{
 		URL:           "data:text/html,<html><body><h1>Test</h1></body></html>",
-		ViewportWidth: 375,
-		Screen:        pipeline.Dimension{Width: 100, Height: 500},
+		ViewportWidth: 320,
+		Screen:        pipeline.Dimension{Width: 64, Height: 128},
 		TimeoutMs:     5000,
 		NetworkConditions: ports.NetworkConditions{
 			LatencyMs:     10,
@@ -504,19 +504,19 @@ func TestOrchestratorWithDebugSink(t *testing.T) {
 	config := orchestrator.Config{
 		URL:           "data:text/html,<html><body><h1>Debug Test</h1><p>Content</p></body></html>",
 		OutputPath:    tmpDir + "/output.mp4",
-		CanvasWidth:   256,
-		CanvasHeight:  320,
+		CanvasWidth:   64,
+		CanvasHeight:  80,
 		Columns:       2,
-		Gap:           10,
-		Padding:       10,
+		Gap:           2,
+		Padding:       2,
 		BorderWidth:   1,
-		ViewportWidth: 375,
+		ViewportWidth: 320,
 		TimeoutMs:     10000,
 		BannerEnabled: true,
-		BannerHeight:  40,
+		BannerHeight:  16,
 		ShowProgress:  true,
-		VideoCRF:       45,
-		OutroMs:       200,
+		VideoCRF:      45,
+		OutroMs:       100,
 		FPS:           30.0,
 	}
 

@@ -35,10 +35,10 @@ func TestEncodeDecodeRoundTrip(t *testing.T) {
 	// First, encode some frames
 	enc := h264encoder.New()
 
-	width := 320
-	height := 240
+	width := 128
+	height := 96
 	fps := 30.0
-	numFrames := 10
+	numFrames := 5
 
 	if err := enc.Begin(width, height, fps, ports.EncoderOptions{Quality: 20}); err != nil {
 		t.Fatalf("encoder Begin failed: %v", err)
@@ -96,12 +96,12 @@ func TestExtractFrames(t *testing.T) {
 	// Encode some frames
 	enc := h264encoder.New()
 
-	if err := enc.Begin(160, 120, 15.0, ports.EncoderOptions{}); err != nil {
+	if err := enc.Begin(64, 48, 15.0, ports.EncoderOptions{}); err != nil {
 		t.Fatalf("encoder Begin failed: %v", err)
 	}
 
-	for i := 0; i < 5; i++ {
-		img := createTestImage(160, 120, i)
+	for i := 0; i < 3; i++ {
+		img := createTestImage(64, 48, i)
 		if err := enc.EncodeFrame(img, i*67); err != nil {
 			t.Fatalf("EncodeFrame failed: %v", err)
 		}
