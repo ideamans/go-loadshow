@@ -588,13 +588,14 @@ func TestJuxtaposeWithCodec(t *testing.T) {
 		t.Fatalf("Failed to create right video: %v\n%s", err, out)
 	}
 
-	// Run juxtapose with explicit codec (test output codec option)
-	// Note: Input videos are AV1, but output can be H.264 (encoder works, just not decoder)
+	// Run juxtapose with explicit codec
+	// Note: --codec flag affects BOTH input decoding AND output encoding,
+	// so we must use the same codec as the input videos (AV1)
 	cmd = exec.Command(
 		getBinaryPath(),
 		"juxtapose",
 		"-o", outputPath,
-		"--codec", "h264",
+		"--codec", "av1",
 		leftPath,
 		rightPath,
 	)
@@ -606,10 +607,7 @@ func TestJuxtaposeWithCodec(t *testing.T) {
 
 	err = cmd.Run()
 	if err != nil {
-		// If H.264 not available, should fall back
-		if !strings.Contains(stderr.String(), "falling back") {
-			t.Fatalf("Juxtapose command failed: %v\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
-		}
+		t.Fatalf("Juxtapose command failed: %v\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
 	}
 
 	// Verify output file
