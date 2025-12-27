@@ -19,6 +19,7 @@ import (
 	"github.com/user/loadshow/pkg/adapters/av1encoder"
 	"github.com/user/loadshow/pkg/adapters/capturehtml"
 	"github.com/user/loadshow/pkg/adapters/chromebrowser"
+	"github.com/user/loadshow/pkg/adapters/codecdetect"
 	"github.com/user/loadshow/pkg/adapters/filesink"
 	"github.com/user/loadshow/pkg/adapters/ggrenderer"
 	"github.com/user/loadshow/pkg/adapters/h264decoder"
@@ -43,15 +44,15 @@ var version = "dev"
 // Flag category names (will be translated)
 // Order is controlled by customCommandHelpTemplate
 const (
-	catOutput      = "Output"
-	catPreset      = "Preset"
-	catBrowser     = "Browser"
-	catPerformance = "Performance Emulation"
-	catLayoutStyle = "Layout and Style"
-	catBanner      = "Banner"
+	catOutput       = "Output"
+	catPreset       = "Preset"
+	catBrowser      = "Browser"
+	catPerformance  = "Performance Emulation"
+	catLayoutStyle  = "Layout and Style"
+	catBanner       = "Banner"
 	catVideoQuality = "Video and Quality"
-	catDebug       = "Debug"
-	catLogging     = "Logging"
+	catDebug        = "Debug"
+	catLogging      = "Logging"
 )
 
 // categoryOrder defines the display order of flag categories
@@ -452,14 +453,20 @@ func runRecord(c *cli.Context) error {
 		encoder = av1encoder.New()
 		codecName = "AV1"
 	case "h264":
-		if h264encoder.IsAvailable() {
-			encoder = h264encoder.New()
-			codecName = "H.264"
+		// Try to get the best available H.264 encoder (Native > FFmpeg)
+		h264Encoder, encoderType := h264encoder.NewBestAvailable()
+		if h264Encoder != nil {
+			encoder = h264Encoder
+			if encoderType == h264encoder.EncoderTypeNative {
+				codecName = "H.264 (native)"
+			} else {
+				codecName = "H.264 (ffmpeg)"
+			}
 		} else {
-			// Fallback to AV1 if H.264 is not available (e.g., no ffmpeg on Linux)
+			// Fallback to AV1 if no H.264 encoder is available
 			encoder = av1encoder.New()
 			codecName = "AV1"
-			log.Warn(l10n.T("H.264 encoder not available (ffmpeg not found), falling back to AV1"))
+			log.Warn(l10n.T("H.264 encoder not available, falling back to AV1"))
 		}
 	default:
 		return fmt.Errorf("unknown codec: %s (supported: h264, av1)", requestedCodec)
@@ -657,28 +664,65 @@ func runJuxtapose(c *cli.Context) error {
 		h264decoder.SetFFmpegPath(ffmpegPath)
 	}
 
-	// Select encoder and decoder based on --codec option
-	var encoder ports.VideoEncoder
+	// Auto-detect input video codecs
+	leftCodec, err := codecdetect.DetectFromFile(left)
+	if err != nil {
+		return fmt.Errorf("failed to detect codec for %s: %w", left, err)
+	}
+	rightCodec, err := codecdetect.DetectFromFile(right)
+	if err != nil {
+		return fmt.Errorf("failed to detect codec for %s: %w", right, err)
+	}
+
+	log.Debug(l10n.F("Left video codec: %s, Right video codec: %s", leftCodec, rightCodec))
+
+	// Check if we need H.264 decoder
+	needsH264Decoder := leftCodec == codecdetect.CodecH264 || rightCodec == codecdetect.CodecH264
+	if needsH264Decoder && !h264decoder.IsAvailable() {
+		return fmt.Errorf("H.264 decoder not available, but input video(s) are H.264 encoded")
+	}
+
+	// Create decoder that can handle detected codec
+	// If any input is H.264, we need the H.264 decoder
+	// If any input is AV1, we need the AV1 decoder
+	// Note: Currently we use a single decoder, so both inputs should have the same codec
 	var decoder ports.VideoDecoder
+	if leftCodec != rightCodec {
+		return fmt.Errorf("mixed codec inputs not supported: left=%s, right=%s", leftCodec, rightCodec)
+	}
+	switch leftCodec {
+	case codecdetect.CodecH264:
+		decoder = h264decoder.NewMP4Reader()
+	case codecdetect.CodecAV1:
+		decoder = av1decoder.NewMP4Reader()
+	default:
+		return fmt.Errorf("unsupported input codec: %s", leftCodec)
+	}
+
+	// Select encoder based on --codec option (independent of input codec)
+	var encoder ports.VideoEncoder
 	var codecName string
 	requestedCodec := c.String("codec")
 
 	switch requestedCodec {
 	case "av1":
 		encoder = av1encoder.New()
-		decoder = av1decoder.NewMP4Reader()
 		codecName = "AV1"
 	case "h264":
-		if h264encoder.IsAvailable() {
-			encoder = h264encoder.New()
-			decoder = h264decoder.NewMP4Reader()
-			codecName = "H.264"
+		// Try to get the best available H.264 encoder (Native > FFmpeg)
+		h264Encoder, encoderType := h264encoder.NewBestAvailable()
+		if h264Encoder != nil {
+			encoder = h264Encoder
+			if encoderType == h264encoder.EncoderTypeNative {
+				codecName = "H.264 (native)"
+			} else {
+				codecName = "H.264 (ffmpeg)"
+			}
 		} else {
-			// Fallback to AV1 if H.264 is not available (e.g., no ffmpeg on Linux)
+			// Fallback to AV1 if no H.264 encoder is available
 			encoder = av1encoder.New()
-			decoder = av1decoder.NewMP4Reader()
 			codecName = "AV1"
-			log.Warn(l10n.T("H.264 encoder not available (ffmpeg not found), falling back to AV1"))
+			log.Warn(l10n.T("H.264 encoder not available, falling back to AV1"))
 		}
 	default:
 		return fmt.Errorf("unknown codec: %s (supported: h264, av1)", requestedCodec)
@@ -696,7 +740,7 @@ func runJuxtapose(c *cli.Context) error {
 	stage := juxtapose.New(decoder, encoder, fs, log, opts)
 
 	log.Info(l10n.F("Creating comparison video: %s + %s → %s", left, right, output))
-	log.Info(l10n.F("Encoding video with CRF %d (%s codec)", videoCRF, codecName))
+	log.Info(l10n.F("Input codec: %s, Output codec: %s (CRF %d)", leftCodec, codecName, videoCRF))
 
 	result, err := stage.Execute(ctx, juxtapose.Input{
 		LeftPath:   left,
