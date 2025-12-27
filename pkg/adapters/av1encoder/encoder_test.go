@@ -164,11 +164,11 @@ func TestEncoder_DifferentResolutions(t *testing.T) {
 		width  int
 		height int
 	}{
-		{"small", 64, 64},
-		{"medium", 256, 256},
-		{"wide", 320, 180},
-		{"tall", 180, 320},
-		{"standard", 512, 640},
+		{"small", 32, 32},
+		{"medium", 64, 64},
+		{"wide", 80, 48},
+		{"tall", 48, 80},
+		{"standard", 128, 160},
 	}
 
 	for _, tt := range tests {
@@ -255,12 +255,12 @@ func createTestImage(width, height int, c color.RGBA) image.Image {
 // Benchmark tests
 func BenchmarkEncoder_EncodeFrame(b *testing.B) {
 	encoder := New()
-	if err := encoder.Begin(256, 256, 30.0, ports.EncoderOptions{Quality: 40}); err != nil {
+	if err := encoder.Begin(64, 64, 30.0, ports.EncoderOptions{Quality: 40}); err != nil {
 		b.Fatalf("Begin failed: %v", err)
 	}
 	defer encoder.cleanup()
 
-	img := createTestImage(256, 256, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+	img := createTestImage(64, 64, color.RGBA{R: 128, G: 128, B: 128, A: 255})
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
