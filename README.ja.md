@@ -62,6 +62,12 @@ make build
 | **macOS**   | VideoToolbox (OS標準)      | libaom (静的リンク)  | なし                          |
 | **Linux**   | FFmpeg (外部プロセス)      | libaom (静的リンク)  | FFmpegが必要 (H.264使用時)    |
 
+**H.264エンコーダーのフォールバック順序:**
+`--codec h264` を指定した場合、以下の順序でエンコーダーを試行します：
+1. **ネイティブエンコーダー** (macOSではVideoToolbox、WindowsではMedia Foundation)
+2. **FFmpeg** (ネイティブが利用不可の場合)
+3. **AV1フォールバック** (両方とも利用不可の場合、警告を表示)
+
 LinuxでH.264を使用する場合はFFmpegをインストールしてください：
 
 ```bash
@@ -176,7 +182,12 @@ loadshow record https://example.com -o output.mp4 --proxy-server http://proxy:80
 ```bash
 # 2つの動画を横並びで比較
 loadshow juxtapose before.mp4 after.mp4 -o comparison.mp4
+
+# 出力コーデックを指定（入力コーデックは自動検出）
+loadshow juxtapose before.mp4 after.mp4 -o comparison.mp4 --codec av1
 ```
+
+**注意:** 入力動画のコーデックはMP4ファイルから自動検出されます。`--codec` オプションは出力エンコードにのみ影響します。両方の入力動画は同じコーデック（両方H.264または両方AV1）である必要があります。
 
 ### デバッグモード
 
@@ -533,8 +544,9 @@ pkg/
 ├── adapters/        # インターフェース実装（アダプタ）
 │   ├── av1encoder/  # AV1動画エンコード（libaom、静的リンク）
 │   ├── av1decoder/  # AV1動画デコード（libaom、静的リンク）
-│   ├── h264encoder/ # H.264エンコード（OS標準APIまたはFFmpeg）
+│   ├── h264encoder/ # H.264エンコード（OS標準API、FFmpegフォールバック）
 │   ├── h264decoder/ # H.264デコード（OS標準APIまたはFFmpeg）
+│   ├── codecdetect/ # MP4ファイルからコーデックを自動検出
 │   ├── chromebrowser/
 │   ├── ggrenderer/
 │   └── ...

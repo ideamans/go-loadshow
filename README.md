@@ -62,6 +62,12 @@ make build
 | **macOS**   | VideoToolbox (OS built-in)     | libaom (static linked) | None                       |
 | **Linux**   | FFmpeg (external)              | libaom (static linked) | FFmpeg required for H.264  |
 
+**H.264 Encoder Fallback Chain:**
+When `--codec h264` is specified, loadshow tries encoders in this order:
+1. **Native encoder** (VideoToolbox on macOS, Media Foundation on Windows)
+2. **FFmpeg** (if native is unavailable)
+3. **AV1 fallback** (if both native and FFmpeg are unavailable, with warning)
+
 On Linux, install FFmpeg for H.264 support:
 
 ```bash
@@ -176,7 +182,12 @@ loadshow record https://example.com -o output.mp4 --proxy-server http://proxy:80
 ```bash
 # Create a side-by-side comparison of two videos
 loadshow juxtapose before.mp4 after.mp4 -o comparison.mp4
+
+# Specify output codec (input codec is auto-detected)
+loadshow juxtapose before.mp4 after.mp4 -o comparison.mp4 --codec av1
 ```
+
+**Note:** The input video codec is automatically detected from the MP4 files. The `--codec` option only affects the output encoding. Both input videos must use the same codec (either both H.264 or both AV1).
 
 ### Debug Mode
 
@@ -533,8 +544,9 @@ pkg/
 ├── adapters/        # Interface implementations (adapters)
 │   ├── av1encoder/  # AV1 video encoding (libaom, static linked)
 │   ├── av1decoder/  # AV1 video decoding (libaom, static linked)
-│   ├── h264encoder/ # H.264 encoding (OS native or FFmpeg)
+│   ├── h264encoder/ # H.264 encoding (OS native or FFmpeg fallback)
 │   ├── h264decoder/ # H.264 decoding (OS native or FFmpeg)
+│   ├── codecdetect/ # Auto-detect video codec from MP4 files
 │   ├── chromebrowser/
 │   ├── ggrenderer/
 │   └── ...
