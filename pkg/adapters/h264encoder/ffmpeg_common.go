@@ -1,5 +1,5 @@
-//go:build linux
-
+// Package h264encoder provides H.264 video encoding using platform-native APIs.
+// This file provides FFmpeg-based encoding as a fallback for all platforms.
 package h264encoder
 
 import (
@@ -16,36 +16,29 @@ import (
 	"github.com/user/loadshow/pkg/ports"
 )
 
-// ffmpegEncoder implements H.264 encoding using ffmpeg external process.
-type ffmpegEncoder struct {
-	ffmpegPath string
-	width      int
-	height     int
-	fps        float64
-	opts       ports.EncoderOptions
-
-	mu         sync.Mutex
-	cmd        *exec.Cmd
-	stdin      io.WriteCloser
-	stderr     bytes.Buffer
-	tempPath   string
-	frameCount int
-	closed     bool
+// IsFFmpegAvailable checks if ffmpeg is available on the system.
+func IsFFmpegAvailable() bool {
+	_, err := FindFFmpeg()
+	return err == nil
 }
 
-func newPlatformEncoder() platformEncoder {
-	return &ffmpegEncoder{}
-}
-
-// findFFmpeg searches for ffmpeg in PATH and common locations.
-// If customFFmpegPath is set, it uses that path instead.
-func findFFmpeg() (string, error) {
+// FindFFmpeg searches for ffmpeg in PATH and common locations.
+// Priority: 1) customFFmpegPath (set via SetFFmpegPath), 2) FFMPEG_PATH env, 3) PATH, 4) common locations
+func FindFFmpeg() (string, error) {
 	// Check custom path first (set via SetFFmpegPath)
 	if customFFmpegPath != "" {
 		if _, err := os.Stat(customFFmpegPath); err == nil {
 			return customFFmpegPath, nil
 		}
 		return "", fmt.Errorf("%w: custom path %s not found", ErrFFmpegNotFound, customFFmpegPath)
+	}
+
+	// Check FFMPEG_PATH environment variable
+	if envPath := os.Getenv("FFMPEG_PATH"); envPath != "" {
+		if _, err := os.Stat(envPath); err == nil {
+			return envPath, nil
+		}
+		return "", fmt.Errorf("%w: FFMPEG_PATH %s not found", ErrFFmpegNotFound, envPath)
 	}
 
 	// Check PATH
@@ -67,6 +60,12 @@ func findFFmpeg() (string, error) {
 			`C:\Program Files\ffmpeg\bin\ffmpeg.exe`,
 			`C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe`,
 		}
+	} else if runtime.GOOS == "darwin" {
+		commonPaths = []string{
+			"/opt/homebrew/bin/ffmpeg",
+			"/usr/local/bin/ffmpeg",
+			"/usr/bin/ffmpeg",
+		}
 	} else {
 		commonPaths = []string{
 			"/usr/bin/ffmpeg",
@@ -85,18 +84,36 @@ func findFFmpeg() (string, error) {
 	return "", ErrFFmpegNotFound
 }
 
-// checkPlatformAvailability returns false on Linux as there's no native H.264 encoder.
-// Use IsFFmpegAvailable() from ffmpeg_common.go to check ffmpeg availability.
-func checkPlatformAvailability() bool {
-	return false
+// FFmpegEncoder implements H.264 encoding using ffmpeg external process.
+// This can be used as a fallback on any platform.
+type FFmpegEncoder struct {
+	ffmpegPath string
+	width      int
+	height     int
+	fps        float64
+	opts       ports.EncoderOptions
+
+	mu         sync.Mutex
+	cmd        *exec.Cmd
+	stdin      io.WriteCloser
+	stderr     bytes.Buffer
+	tempPath   string
+	frameCount int
+	closed     bool
 }
 
-func (e *ffmpegEncoder) init(width, height int, fps float64, opts ports.EncoderOptions) error {
+// NewFFmpegEncoder creates a new FFmpeg-based H.264 encoder.
+func NewFFmpegEncoder() *FFmpegEncoder {
+	return &FFmpegEncoder{}
+}
+
+// Begin initializes the encoder.
+func (e *FFmpegEncoder) Begin(width, height int, fps float64, opts ports.EncoderOptions) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	// Find ffmpeg
-	ffmpegPath, err := findFFmpeg()
+	ffmpegPath, err := FindFFmpeg()
 	if err != nil {
 		return err
 	}
@@ -124,9 +141,9 @@ func (e *ffmpegEncoder) init(width, height int, fps float64, opts ports.EncoderO
 		"-pix_fmt", "rgba", // Input pixel format
 		"-s", fmt.Sprintf("%dx%d", width, height), // Input size
 		"-r", fmt.Sprintf("%.2f", fps), // Input frame rate
-		"-i", "pipe:0",       // Read from stdin
-		"-c:v", "libx264",    // Use libx264
-		"-preset", "fast",    // Encoding preset
+		"-i", "pipe:0", // Read from stdin
+		"-c:v", "libx264", // Use libx264
+		"-preset", "fast", // Encoding preset
 		"-pix_fmt", "yuv420p", // Output pixel format
 	}
 
@@ -174,12 +191,13 @@ func (e *ffmpegEncoder) init(width, height int, fps float64, opts ports.EncoderO
 	return nil
 }
 
-func (e *ffmpegEncoder) encodeFrame(img image.Image, timestampMs int) ([]encodedFrame, error) {
+// EncodeFrame encodes a single frame.
+func (e *FFmpegEncoder) EncodeFrame(img image.Image, timestampMs int) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	if e.stdin == nil || e.closed {
-		return nil, ErrNotInitialized
+		return ErrNotInitialized
 	}
 
 	// Convert image to RGBA
@@ -190,19 +208,20 @@ func (e *ffmpegEncoder) encodeFrame(img image.Image, timestampMs int) ([]encoded
 	// Write raw RGBA data to ffmpeg stdin
 	_, err := e.stdin.Write(rgba.Pix)
 	if err != nil {
-		return nil, fmt.Errorf("failed to write frame: %w", err)
+		return fmt.Errorf("failed to write frame: %w", err)
 	}
 
 	e.frameCount++
-	return nil, nil // ffmpeg handles everything internally
+	return nil
 }
 
-func (e *ffmpegEncoder) flush() ([]encodedFrame, error) {
+// End finalizes encoding and returns the MP4 data.
+func (e *FFmpegEncoder) End() ([]byte, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	if e.stdin == nil || e.closed {
-		return nil, nil
+		return nil, ErrNotInitialized
 	}
 
 	// Close stdin to signal end of input
@@ -216,43 +235,18 @@ func (e *ffmpegEncoder) flush() ([]encodedFrame, error) {
 		return nil, fmt.Errorf("ffmpeg encoding failed: %w\nstderr: %s", err, stderrOutput)
 	}
 
-	// Return empty - the MP4 file is ready
-	return nil, nil
-}
-
-func (e *ffmpegEncoder) close() {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	if e.stdin != nil && !e.closed {
-		e.stdin.Close()
-		e.stdin = nil
-	}
-
-	if e.cmd != nil && e.cmd.Process != nil && !e.closed {
-		e.cmd.Process.Kill()
-		e.cmd.Wait()
-	}
-
-	// Don't remove temp file here - it's needed for getOutputMP4
-	e.closed = true
-}
-
-// getOutputMP4 returns the complete MP4 file produced by ffmpeg.
-// This implements the mp4Provider interface.
-func (e *ffmpegEncoder) getOutputMP4() ([]byte, error) {
-	if e.tempPath == "" {
-		return nil, ErrNotInitialized
-	}
-
+	// Read the output file
 	data, err := os.ReadFile(e.tempPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read output: %w", err)
 	}
 
-	// Clean up temp file after reading
+	// Clean up temp file
 	os.Remove(e.tempPath)
 	e.tempPath = ""
 
 	return data, nil
 }
+
+// Ensure FFmpegEncoder implements ports.VideoEncoder
+var _ ports.VideoEncoder = (*FFmpegEncoder)(nil)

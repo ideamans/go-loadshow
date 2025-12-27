@@ -86,7 +86,7 @@ setup_linux() {
 # macOS setup
 setup_darwin() {
     echo "Setting up dependencies for macOS..."
-    brew install cmake ninja pkg-config nasm
+    brew install cmake ninja pkg-config nasm libvmaf
 
     # Detect architecture for correct install path
     local install_prefix="/usr/local"
@@ -95,6 +95,8 @@ setup_darwin() {
     fi
 
     # Always build from source to avoid VMAF dependency
+    # Note: libvmaf is installed above for compatibility with Homebrew's aom
+    # (in case someone later uses `brew install aom` instead of source build)
     build_libaom_static "$install_prefix"
 }
 

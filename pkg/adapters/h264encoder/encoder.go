@@ -26,10 +26,50 @@ func GetFFmpegPath() string {
 }
 
 // IsAvailable checks if H.264 encoding is available on this platform.
-// On macOS, it always returns true (VideoToolbox is always available).
-// On Linux/Windows, it checks if ffmpeg is available.
+// This returns true if either native encoding or ffmpeg is available.
 func IsAvailable() bool {
+	return IsNativeAvailable() || IsFFmpegAvailable()
+}
+
+// IsNativeAvailable checks if native H.264 encoding is available.
+// On macOS: VideoToolbox (always available)
+// On Windows: Media Foundation (always available)
+// On Linux: Not available (use ffmpeg instead)
+func IsNativeAvailable() bool {
 	return checkPlatformAvailability()
+}
+
+// EncoderType represents the type of H.264 encoder being used.
+type EncoderType int
+
+const (
+	EncoderTypeNone EncoderType = iota
+	EncoderTypeNative
+	EncoderTypeFFmpeg
+)
+
+func (t EncoderType) String() string {
+	switch t {
+	case EncoderTypeNative:
+		return "native"
+	case EncoderTypeFFmpeg:
+		return "ffmpeg"
+	default:
+		return "none"
+	}
+}
+
+// NewBestAvailable returns the best available H.264 encoder with its type.
+// Priority: Native (VideoToolbox/Media Foundation) > FFmpeg
+// If no encoder is available, returns nil and EncoderTypeNone.
+func NewBestAvailable() (ports.VideoEncoder, EncoderType) {
+	if IsNativeAvailable() {
+		return New(), EncoderTypeNative
+	}
+	if IsFFmpegAvailable() {
+		return NewFFmpegEncoder(), EncoderTypeFFmpeg
+	}
+	return nil, EncoderTypeNone
 }
 
 // encodedFrame represents a single encoded H.264 frame.

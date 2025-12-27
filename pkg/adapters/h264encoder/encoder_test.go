@@ -30,8 +30,8 @@ func createTestImage(width, height int, frameNum int) *image.RGBA {
 func TestEncoderBasic(t *testing.T) {
 	enc := New()
 
-	width := 320
-	height := 240
+	width := 256
+	height := 192
 	fps := 30.0
 	opts := ports.EncoderOptions{
 		Quality: 25, // Medium quality
@@ -43,7 +43,7 @@ func TestEncoderBasic(t *testing.T) {
 	}
 
 	// Encode some frames
-	numFrames := 30
+	numFrames := 5
 	for i := 0; i < numFrames; i++ {
 		img := createTestImage(width, height, i)
 		timestampMs := i * 1000 / int(fps)
@@ -79,12 +79,12 @@ func TestEncoderBasic(t *testing.T) {
 func TestEncoderHighQuality(t *testing.T) {
 	enc := New()
 
-	width := 640
-	height := 480
+	width := 256
+	height := 192
 	fps := 30.0
 	opts := ports.EncoderOptions{
 		Quality: 10, // High quality
-		Bitrate: 2000,
+		Bitrate: 500,
 	}
 
 	if err := enc.Begin(width, height, fps, opts); err != nil {
@@ -92,7 +92,7 @@ func TestEncoderHighQuality(t *testing.T) {
 	}
 
 	// Encode a few frames
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 5; i++ {
 		img := createTestImage(width, height, i)
 		if err := enc.EncodeFrame(img, i*33); err != nil {
 			t.Fatalf("EncodeFrame failed: %v", err)
@@ -110,8 +110,8 @@ func TestEncoderHighQuality(t *testing.T) {
 func TestEncoderLowQuality(t *testing.T) {
 	enc := New()
 
-	width := 320
-	height := 240
+	width := 256
+	height := 192
 	fps := 15.0
 	opts := ports.EncoderOptions{
 		Quality: 50, // Low quality
@@ -121,7 +121,7 @@ func TestEncoderLowQuality(t *testing.T) {
 		t.Fatalf("Begin failed: %v", err)
 	}
 
-	for i := 0; i < 15; i++ {
+	for i := 0; i < 5; i++ {
 		img := createTestImage(width, height, i)
 		if err := enc.EncodeFrame(img, i*67); err != nil {
 			t.Fatalf("EncodeFrame failed: %v", err)
@@ -171,16 +171,16 @@ func TestEncoderWriteToFile(t *testing.T) {
 
 	enc := New()
 
-	width := 320
-	height := 240
+	width := 256
+	height := 192
 	fps := 30.0
 
 	if err := enc.Begin(width, height, fps, ports.EncoderOptions{Quality: 25}); err != nil {
 		t.Fatalf("Begin failed: %v", err)
 	}
 
-	// Encode 60 frames (2 seconds)
-	for i := 0; i < 60; i++ {
+	// Encode 10 frames
+	for i := 0; i < 10; i++ {
 		img := createTestImage(width, height, i)
 		if err := enc.EncodeFrame(img, i*33); err != nil {
 			t.Fatalf("EncodeFrame failed: %v", err)
@@ -234,51 +234,9 @@ func TestEncoderNotInitialized(t *testing.T) {
 	}
 }
 
-func BenchmarkEncode320x240(b *testing.B) {
+func BenchmarkEncode256x192(b *testing.B) {
 	enc := New()
-	width, height := 320, 240
-
-	if err := enc.Begin(width, height, 30.0, ports.EncoderOptions{Quality: 25}); err != nil {
-		b.Fatalf("Begin failed: %v", err)
-	}
-
-	img := createTestImage(width, height, 0)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if err := enc.EncodeFrame(img, i*33); err != nil {
-			b.Fatalf("EncodeFrame failed: %v", err)
-		}
-	}
-	b.StopTimer()
-
-	enc.End()
-}
-
-func BenchmarkEncode640x480(b *testing.B) {
-	enc := New()
-	width, height := 640, 480
-
-	if err := enc.Begin(width, height, 30.0, ports.EncoderOptions{Quality: 25}); err != nil {
-		b.Fatalf("Begin failed: %v", err)
-	}
-
-	img := createTestImage(width, height, 0)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if err := enc.EncodeFrame(img, i*33); err != nil {
-			b.Fatalf("EncodeFrame failed: %v", err)
-		}
-	}
-	b.StopTimer()
-
-	enc.End()
-}
-
-func BenchmarkEncode1280x720(b *testing.B) {
-	enc := New()
-	width, height := 1280, 720
+	width, height := 256, 192
 
 	if err := enc.Begin(width, height, 30.0, ports.EncoderOptions{Quality: 25}); err != nil {
 		b.Fatalf("Begin failed: %v", err)

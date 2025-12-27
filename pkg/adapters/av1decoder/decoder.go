@@ -4,11 +4,11 @@ package av1decoder
 /*
 // macOS arm64 (Apple Silicon)
 #cgo darwin,arm64 CFLAGS: -I/opt/homebrew/include
-#cgo darwin,arm64 LDFLAGS: /opt/homebrew/lib/libaom.a -lpthread
+#cgo darwin,arm64 LDFLAGS: /opt/homebrew/lib/libaom.a /opt/homebrew/lib/libvmaf.a -lpthread -lc++
 
 // macOS amd64 (Intel)
 #cgo darwin,amd64 CFLAGS: -I/usr/local/include
-#cgo darwin,amd64 LDFLAGS: /usr/local/lib/libaom.a -lpthread
+#cgo darwin,amd64 LDFLAGS: /usr/local/lib/libaom.a /usr/local/lib/libvmaf.a -lpthread -lc++
 
 // Linux - static linking
 #cgo linux CFLAGS: -I/usr/local/include
