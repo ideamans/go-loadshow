@@ -15,16 +15,13 @@ import (
 	"github.com/ideamans/go-l10n"
 	"github.com/urfave/cli/v2"
 
-	"github.com/user/loadshow/pkg/adapters/av1decoder"
-	"github.com/user/loadshow/pkg/adapters/av1encoder"
 	"github.com/user/loadshow/pkg/adapters/capturehtml"
 	"github.com/user/loadshow/pkg/adapters/chromebrowser"
-	"github.com/user/loadshow/pkg/adapters/codecdetect"
 	"github.com/user/loadshow/pkg/adapters/filesink"
 	"github.com/user/loadshow/pkg/adapters/ggrenderer"
-	"github.com/user/loadshow/pkg/adapters/h264decoder"
-	"github.com/user/loadshow/pkg/adapters/h264encoder"
 	"github.com/user/loadshow/pkg/adapters/logger"
+	"github.com/user/loadshow/pkg/adapters/smartdecoder"
+	"github.com/user/loadshow/pkg/adapters/smartencoder"
 	"github.com/user/loadshow/pkg/adapters/nullsink"
 	"github.com/user/loadshow/pkg/adapters/osfilesystem"
 	"github.com/user/loadshow/pkg/config"
@@ -437,39 +434,38 @@ func runRecord(c *cli.Context) error {
 	browser := chromebrowser.New()
 	htmlCapturer := capturehtml.New()
 
-	// Set custom ffmpeg path if specified (for Linux H.264)
-	if ffmpegPath := c.String("ffmpeg-path"); ffmpegPath != "" {
-		h264encoder.SetFFmpegPath(ffmpegPath)
-		h264decoder.SetFFmpegPath(ffmpegPath)
-	}
-
-	// Select encoder based on --codec option
-	var encoder ports.VideoEncoder
-	var codecName string
+	// Select encoder based on --codec option using smart encoder
 	requestedCodec := c.String("codec")
-
+	var preferred smartencoder.Codec
 	switch requestedCodec {
 	case "av1":
-		encoder = av1encoder.New()
-		codecName = "AV1"
+		preferred = smartencoder.CodecAV1
 	case "h264":
-		// Try to get the best available H.264 encoder (Native > FFmpeg)
-		h264Encoder, encoderType := h264encoder.NewBestAvailable()
-		if h264Encoder != nil {
-			encoder = h264Encoder
-			if encoderType == h264encoder.EncoderTypeNative {
-				codecName = "H.264 (native)"
-			} else {
-				codecName = "H.264 (ffmpeg)"
-			}
-		} else {
-			// Fallback to AV1 if no H.264 encoder is available
-			encoder = av1encoder.New()
-			codecName = "AV1"
-			log.Warn(l10n.T("H.264 encoder not available, falling back to AV1"))
-		}
+		preferred = smartencoder.CodecH264
 	default:
 		return fmt.Errorf("unknown codec: %s (supported: h264, av1)", requestedCodec)
+	}
+
+	encoder, encoderInfo, err := smartencoder.New(preferred, smartencoder.Options{
+		FFmpegPath:    c.String("ffmpeg-path"),
+		AllowFallback: true,
+		Logger:        log,
+	})
+	if err != nil {
+		return fmt.Errorf("create encoder: %w", err)
+	}
+
+	// Build codec name for logging
+	var codecName string
+	switch {
+	case encoderInfo.Codec == smartencoder.CodecAV1:
+		codecName = "AV1"
+	case encoderInfo.Backend == smartencoder.BackendOS:
+		codecName = "H.264 (native)"
+	case encoderInfo.Backend == smartencoder.BackendFFmpeg:
+		codecName = "H.264 (ffmpeg)"
+	default:
+		codecName = string(encoderInfo.Codec)
 	}
 
 	// Create debug sink
@@ -657,75 +653,68 @@ func runJuxtapose(c *cli.Context) error {
 
 	// Create adapters
 	fs := osfilesystem.New()
+	ffmpegPath := c.String("ffmpeg-path")
 
-	// Set custom ffmpeg path if specified (for Linux H.264)
-	if ffmpegPath := c.String("ffmpeg-path"); ffmpegPath != "" {
-		h264encoder.SetFFmpegPath(ffmpegPath)
-		h264decoder.SetFFmpegPath(ffmpegPath)
-	}
-
-	// Auto-detect input video codecs
-	leftCodec, err := codecdetect.DetectFromFile(left)
+	// Auto-detect input video codecs using smart decoder
+	leftCodec, err := smartdecoder.DetectCodec(left)
 	if err != nil {
 		return fmt.Errorf("failed to detect codec for %s: %w", left, err)
 	}
-	rightCodec, err := codecdetect.DetectFromFile(right)
+	rightCodec, err := smartdecoder.DetectCodec(right)
 	if err != nil {
 		return fmt.Errorf("failed to detect codec for %s: %w", right, err)
 	}
 
 	log.Debug(l10n.F("Left video codec: %s, Right video codec: %s", leftCodec, rightCodec))
 
-	// Check if we need H.264 decoder
-	needsH264Decoder := leftCodec == codecdetect.CodecH264 || rightCodec == codecdetect.CodecH264
-	if needsH264Decoder && !h264decoder.IsAvailable() {
-		return fmt.Errorf("H.264 decoder not available, but input video(s) are H.264 encoded")
-	}
-
-	// Create decoder that can handle detected codec
-	// If any input is H.264, we need the H.264 decoder
-	// If any input is AV1, we need the AV1 decoder
-	// Note: Currently we use a single decoder, so both inputs should have the same codec
-	var decoder ports.VideoDecoder
+	// Currently both inputs should have the same codec
 	if leftCodec != rightCodec {
 		return fmt.Errorf("mixed codec inputs not supported: left=%s, right=%s", leftCodec, rightCodec)
 	}
-	switch leftCodec {
-	case codecdetect.CodecH264:
-		decoder = h264decoder.NewMP4Reader()
-	case codecdetect.CodecAV1:
-		decoder = av1decoder.NewMP4Reader()
-	default:
-		return fmt.Errorf("unsupported input codec: %s", leftCodec)
+
+	// Create decoder using smart decoder (auto-selects based on codec)
+	decoder, decoderInfo, err := smartdecoder.NewForCodec(leftCodec, smartdecoder.Options{
+		FFmpegPath: ffmpegPath,
+	})
+	if err != nil {
+		return fmt.Errorf("create decoder: %w", err)
 	}
+	defer decoder.Close()
 
-	// Select encoder based on --codec option (independent of input codec)
-	var encoder ports.VideoEncoder
-	var codecName string
+	log.Debug(l10n.F("Using decoder: codec=%s, backend=%s", decoderInfo.Codec, decoderInfo.Backend))
+
+	// Select encoder based on --codec option using smart encoder
 	requestedCodec := c.String("codec")
-
+	var preferred smartencoder.Codec
 	switch requestedCodec {
 	case "av1":
-		encoder = av1encoder.New()
-		codecName = "AV1"
+		preferred = smartencoder.CodecAV1
 	case "h264":
-		// Try to get the best available H.264 encoder (Native > FFmpeg)
-		h264Encoder, encoderType := h264encoder.NewBestAvailable()
-		if h264Encoder != nil {
-			encoder = h264Encoder
-			if encoderType == h264encoder.EncoderTypeNative {
-				codecName = "H.264 (native)"
-			} else {
-				codecName = "H.264 (ffmpeg)"
-			}
-		} else {
-			// Fallback to AV1 if no H.264 encoder is available
-			encoder = av1encoder.New()
-			codecName = "AV1"
-			log.Warn(l10n.T("H.264 encoder not available, falling back to AV1"))
-		}
+		preferred = smartencoder.CodecH264
 	default:
 		return fmt.Errorf("unknown codec: %s (supported: h264, av1)", requestedCodec)
+	}
+
+	encoder, encoderInfo, err := smartencoder.New(preferred, smartencoder.Options{
+		FFmpegPath:    ffmpegPath,
+		AllowFallback: true,
+		Logger:        log,
+	})
+	if err != nil {
+		return fmt.Errorf("create encoder: %w", err)
+	}
+
+	// Build codec name for logging
+	var codecName string
+	switch {
+	case encoderInfo.Codec == smartencoder.CodecAV1:
+		codecName = "AV1"
+	case encoderInfo.Backend == smartencoder.BackendOS:
+		codecName = "H.264 (native)"
+	case encoderInfo.Backend == smartencoder.BackendFFmpeg:
+		codecName = "H.264 (ffmpeg)"
+	default:
+		codecName = string(encoderInfo.Codec)
 	}
 
 	// Create juxtapose options
