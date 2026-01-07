@@ -346,37 +346,58 @@ func TestJuxtaposeCommand(t *testing.T) {
 	leftPath := filepath.Join(tmpDir, "left.mp4")
 	rightPath := filepath.Join(tmpDir, "right.mp4")
 	outputPath := filepath.Join(tmpDir, "output.mp4")
+	projectRoot := getProjectRoot(t)
+
+	// Create left and right videos in parallel for faster test execution
+	type result struct {
+		name string
+		err  error
+		out  []byte
+	}
+	results := make(chan result, 2)
 
 	// Create left video (use AV1 for cross-platform compatibility - H.264 decoder not available on Windows Server)
-	cmd := exec.Command(
-		getBinaryPath(),
-		"record",
-		"-o", leftPath,
-		"-p", "mobile",
-		"--codec", "av1",
-		testURL,
-	)
-	cmd.Dir = getProjectRoot(t)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to create left video: %v\n%s", err, out)
-	}
+	go func() {
+		cmd := exec.Command(
+			getBinaryPath(),
+			"record",
+			"-o", leftPath,
+			"-p", "mobile",
+			"--codec", "av1",
+			"--timeout-sec", "3",
+			testURL,
+		)
+		cmd.Dir = projectRoot
+		out, err := cmd.CombinedOutput()
+		results <- result{name: "left", err: err, out: out}
+	}()
 
 	// Create right video
-	cmd = exec.Command(
-		getBinaryPath(),
-		"record",
-		"-o", rightPath,
-		"-p", "desktop",
-		"--codec", "av1",
-		testURL,
-	)
-	cmd.Dir = getProjectRoot(t)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to create right video: %v\n%s", err, out)
+	go func() {
+		cmd := exec.Command(
+			getBinaryPath(),
+			"record",
+			"-o", rightPath,
+			"-p", "desktop",
+			"--codec", "av1",
+			"--timeout-sec", "3",
+			testURL,
+		)
+		cmd.Dir = projectRoot
+		out, err := cmd.CombinedOutput()
+		results <- result{name: "right", err: err, out: out}
+	}()
+
+	// Wait for both videos to be created
+	for i := 0; i < 2; i++ {
+		r := <-results
+		if r.err != nil {
+			t.Fatalf("Failed to create %s video: %v\n%s", r.name, r.err, r.out)
+		}
 	}
 
 	// Run juxtapose
-	cmd = exec.Command(
+	cmd := exec.Command(
 		getBinaryPath(),
 		"juxtapose",
 		"-o", outputPath,
@@ -559,39 +580,60 @@ func TestJuxtaposeWithCodec(t *testing.T) {
 	leftPath := filepath.Join(tmpDir, "left.mp4")
 	rightPath := filepath.Join(tmpDir, "right.mp4")
 	outputPath := filepath.Join(tmpDir, "output.mp4")
+	projectRoot := getProjectRoot(t)
+
+	// Create left and right videos in parallel for faster test execution
+	type result struct {
+		name string
+		err  error
+		out  []byte
+	}
+	results := make(chan result, 2)
 
 	// Create left video (use AV1 for input - H.264 decoder not available on Windows Server)
-	cmd := exec.Command(
-		getBinaryPath(),
-		"record",
-		"-o", leftPath,
-		"-p", "mobile",
-		"--codec", "av1",
-		testURL,
-	)
-	cmd.Dir = getProjectRoot(t)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to create left video: %v\n%s", err, out)
-	}
+	go func() {
+		cmd := exec.Command(
+			getBinaryPath(),
+			"record",
+			"-o", leftPath,
+			"-p", "mobile",
+			"--codec", "av1",
+			"--timeout-sec", "3",
+			testURL,
+		)
+		cmd.Dir = projectRoot
+		out, err := cmd.CombinedOutput()
+		results <- result{name: "left", err: err, out: out}
+	}()
 
 	// Create right video
-	cmd = exec.Command(
-		getBinaryPath(),
-		"record",
-		"-o", rightPath,
-		"-p", "desktop",
-		"--codec", "av1",
-		testURL,
-	)
-	cmd.Dir = getProjectRoot(t)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to create right video: %v\n%s", err, out)
+	go func() {
+		cmd := exec.Command(
+			getBinaryPath(),
+			"record",
+			"-o", rightPath,
+			"-p", "desktop",
+			"--codec", "av1",
+			"--timeout-sec", "3",
+			testURL,
+		)
+		cmd.Dir = projectRoot
+		out, err := cmd.CombinedOutput()
+		results <- result{name: "right", err: err, out: out}
+	}()
+
+	// Wait for both videos to be created
+	for i := 0; i < 2; i++ {
+		r := <-results
+		if r.err != nil {
+			t.Fatalf("Failed to create %s video: %v\n%s", r.name, r.err, r.out)
+		}
 	}
 
 	// Run juxtapose with explicit codec
 	// Note: --codec flag affects BOTH input decoding AND output encoding,
 	// so we must use the same codec as the input videos (AV1)
-	cmd = exec.Command(
+	cmd := exec.Command(
 		getBinaryPath(),
 		"juxtapose",
 		"-o", outputPath,
