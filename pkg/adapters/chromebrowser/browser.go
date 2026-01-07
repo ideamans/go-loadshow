@@ -321,6 +321,49 @@ func (b *Browser) GetPageInfo() (*ports.PageInfo, error) {
 	}, nil
 }
 
+// GetPerformanceTiming retrieves navigation timing metrics using Performance API.
+func (b *Browser) GetPerformanceTiming() (*ports.PerformanceTiming, error) {
+	var timing struct {
+		NavigationStart     int64 `json:"navigationStart"`
+		DOMContentLoadedEnd int64 `json:"domContentLoadedEventEnd"`
+		LoadEventEnd        int64 `json:"loadEventEnd"`
+	}
+
+	// Use Performance Navigation Timing API (newer) with fallback to legacy API
+	script := `
+		(function() {
+			// Try Navigation Timing Level 2 first
+			const entries = performance.getEntriesByType('navigation');
+			if (entries.length > 0) {
+				const nav = entries[0];
+				return {
+					navigationStart: 0,
+					domContentLoadedEventEnd: Math.round(nav.domContentLoadedEventEnd),
+					loadEventEnd: Math.round(nav.loadEventEnd)
+				};
+			}
+			// Fallback to legacy timing API
+			const t = performance.timing;
+			return {
+				navigationStart: t.navigationStart,
+				domContentLoadedEventEnd: t.domContentLoadedEventEnd,
+				loadEventEnd: t.loadEventEnd
+			};
+		})()
+	`
+
+	err := chromedp.Run(b.ctx, chromedp.Evaluate(script, &timing))
+	if err != nil {
+		return nil, fmt.Errorf("get performance timing: %w", err)
+	}
+
+	return &ports.PerformanceTiming{
+		NavigationStart:     timing.NavigationStart,
+		DOMContentLoadedEnd: timing.DOMContentLoadedEnd,
+		LoadEventEnd:        timing.LoadEventEnd,
+	}, nil
+}
+
 // Close shuts down the browser.
 func (b *Browser) Close() error {
 	b.StopScreencast()

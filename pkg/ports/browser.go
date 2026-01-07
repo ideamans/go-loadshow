@@ -36,6 +36,9 @@ type Browser interface {
 	// GetPageInfo retrieves information about the current page.
 	GetPageInfo() (*PageInfo, error)
 
+	// GetPerformanceTiming retrieves navigation timing metrics.
+	GetPerformanceTiming() (*PerformanceTiming, error)
+
 	// Close shuts down the browser.
 	Close() error
 }
@@ -81,4 +84,11 @@ type PageInfo struct {
 	URL          string
 	ScrollHeight int
 	ScrollWidth  int
+}
+
+// PerformanceTiming contains navigation timing metrics from Performance API.
+type PerformanceTiming struct {
+	NavigationStart      int64 // When navigation started
+	DOMContentLoadedEnd  int64 // When DOMContentLoaded event completed
+	LoadEventEnd         int64 // When load event completed
 }

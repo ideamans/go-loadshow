@@ -170,14 +170,27 @@ done:
 	}
 	result.PageInfo = *pageInfo
 
+	// Get performance timing
+	perfTiming, err := s.browser.GetPerformanceTiming()
+	if err != nil {
+		s.logger.Debug("Failed to get performance timing: %s", err)
+		// Continue without timing data
+	}
+
 	// Calculate timing
 	totalDuration := time.Since(navStart)
 	result.Timing = pipeline.TimingInfo{
 		TotalDurationMs: int(totalDuration.Milliseconds()),
 	}
 
-	// Set load complete time based on last frame
-	if len(result.Frames) > 0 {
+	// Set timing from performance API
+	if perfTiming != nil {
+		result.Timing.DOMContentLoadedMs = int(perfTiming.DOMContentLoadedEnd)
+		result.Timing.LoadCompleteMs = int(perfTiming.LoadEventEnd)
+	}
+
+	// Fallback: Set load complete time based on last frame if not available
+	if result.Timing.LoadCompleteMs == 0 && len(result.Frames) > 0 {
 		lastFrame := result.Frames[len(result.Frames)-1]
 		result.Timing.LoadCompleteMs = lastFrame.TimestampMs
 	}
