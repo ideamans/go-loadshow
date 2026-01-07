@@ -22,9 +22,22 @@ type TemplateVars struct {
 
 // NewTemplateVars creates template variables from banner input.
 func NewTemplateVars(width int, url, title string, loadTimeMs int, totalBytes int64, credit string) TemplateVars {
+	return NewTemplateVarsWithTimeout(width, url, title, loadTimeMs, totalBytes, credit, false, 0)
+}
+
+// NewTemplateVarsWithTimeout creates template variables with timeout support.
+func NewTemplateVarsWithTimeout(width int, url, title string, loadTimeMs int, totalBytes int64, credit string, timedOut bool, timeoutSec int) TemplateVars {
 	if credit == "" {
 		credit = "loadshow"
 	}
+
+	var onLoadTimeValue string
+	if timedOut {
+		onLoadTimeValue = fmt.Sprintf("Timeout (%ds)", timeoutSec)
+	} else {
+		onLoadTimeValue = fmt.Sprintf("%.2f sec.", float64(loadTimeMs)/1000)
+	}
+
 	return TemplateVars{
 		BodyWidth:       width,
 		MainTitle:       title,
@@ -34,7 +47,7 @@ func NewTemplateVars(width int, url, title string, loadTimeMs int, totalBytes in
 		TrafficLabel:    "Traffic",
 		TrafficValue:    fmt.Sprintf("%.2f MB", float64(totalBytes)/1024/1024),
 		OnLoadTimeLabel: "OnLoad Time",
-		OnLoadTimeValue: fmt.Sprintf("%.2f sec.", float64(loadTimeMs)/1000),
+		OnLoadTimeValue: onLoadTimeValue,
 	}
 }
 

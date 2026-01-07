@@ -10,8 +10,8 @@ type Browser interface {
 	// Launch starts the browser with the given options.
 	Launch(ctx context.Context, opts BrowserOptions) error
 
-	// Navigate loads the specified URL.
-	Navigate(url string) error
+	// Navigate loads the specified URL with context for timeout control.
+	Navigate(ctx context.Context, url string) error
 
 	// SetViewport sets the browser viewport dimensions with device scale factor.
 	// viewportWidth/viewportHeight are in CSS pixels.
@@ -35,6 +35,9 @@ type Browser interface {
 
 	// GetPageInfo retrieves information about the current page.
 	GetPageInfo() (*PageInfo, error)
+
+	// GetPerformanceTiming retrieves navigation timing metrics.
+	GetPerformanceTiming() (*PerformanceTiming, error)
 
 	// Close shuts down the browser.
 	Close() error
@@ -81,4 +84,11 @@ type PageInfo struct {
 	URL          string
 	ScrollHeight int
 	ScrollWidth  int
+}
+
+// PerformanceTiming contains navigation timing metrics from Performance API.
+type PerformanceTiming struct {
+	NavigationStart     int64 // When navigation started
+	DOMContentLoadedEnd int64 // When DOMContentLoaded event completed
+	LoadEventEnd        int64 // When load event completed
 }

@@ -149,7 +149,7 @@ func TestOrchestrator_Run(t *testing.T) {
 	config.URL = "https://example.com"
 	config.OutputPath = "output.webm"
 
-	err := orch.Run(context.Background(), config)
+	_, err := orch.Run(context.Background(), config)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -234,7 +234,7 @@ func TestOrchestrator_Run_WithBanner(t *testing.T) {
 	config.OutputPath = "output.webm"
 	config.BannerEnabled = true
 
-	err := orch.Run(context.Background(), config)
+	_, err := orch.Run(context.Background(), config)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -290,7 +290,7 @@ func TestOrchestrator_Run_WithDebugSink(t *testing.T) {
 	config.URL = "https://example.com"
 	config.OutputPath = "output.webm"
 
-	err := orch.Run(context.Background(), config)
+	_, err := orch.Run(context.Background(), config)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

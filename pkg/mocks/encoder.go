@@ -13,9 +13,9 @@ type VideoEncoder struct {
 	EndFunc         func() ([]byte, error)
 
 	// Recorded calls for verification
-	BeginCalled       bool
-	EncodeFrameCalls  []EncodeFrameCall
-	EndCalled         bool
+	BeginCalled      bool
+	EncodeFrameCalls []EncodeFrameCall
+	EndCalled        bool
 }
 
 // EncodeFrameCall records a call to EncodeFrame.

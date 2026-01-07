@@ -134,9 +134,21 @@ func (b *Browser) Launch(ctx context.Context, opts ports.BrowserOptions) error {
 	return nil
 }
 
-// Navigate loads the specified URL.
-func (b *Browser) Navigate(url string) error {
-	return chromedp.Run(b.ctx, chromedp.Navigate(url))
+// Navigate loads the specified URL with context for timeout control.
+func (b *Browser) Navigate(ctx context.Context, url string) error {
+	// Create a derived context that inherits both the browser context and the timeout
+	// We need to use the browser's context for chromedp, but respect the timeout from ctx
+	done := make(chan error, 1)
+	go func() {
+		done <- chromedp.Run(b.ctx, chromedp.Navigate(url))
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-done:
+		return err
+	}
 }
 
 // SetViewport sets the browser viewport dimensions with device scale factor.
@@ -318,6 +330,49 @@ func (b *Browser) GetPageInfo() (*ports.PageInfo, error) {
 		URL:          url,
 		ScrollHeight: scrollHeight,
 		ScrollWidth:  scrollWidth,
+	}, nil
+}
+
+// GetPerformanceTiming retrieves navigation timing metrics using Performance API.
+func (b *Browser) GetPerformanceTiming() (*ports.PerformanceTiming, error) {
+	var timing struct {
+		NavigationStart     int64 `json:"navigationStart"`
+		DOMContentLoadedEnd int64 `json:"domContentLoadedEventEnd"`
+		LoadEventEnd        int64 `json:"loadEventEnd"`
+	}
+
+	// Use Performance Navigation Timing API (newer) with fallback to legacy API
+	script := `
+		(function() {
+			// Try Navigation Timing Level 2 first
+			const entries = performance.getEntriesByType('navigation');
+			if (entries.length > 0) {
+				const nav = entries[0];
+				return {
+					navigationStart: 0,
+					domContentLoadedEventEnd: Math.round(nav.domContentLoadedEventEnd),
+					loadEventEnd: Math.round(nav.loadEventEnd)
+				};
+			}
+			// Fallback to legacy timing API
+			const t = performance.timing;
+			return {
+				navigationStart: t.navigationStart,
+				domContentLoadedEventEnd: t.domContentLoadedEventEnd,
+				loadEventEnd: t.loadEventEnd
+			};
+		})()
+	`
+
+	err := chromedp.Run(b.ctx, chromedp.Evaluate(script, &timing))
+	if err != nil {
+		return nil, fmt.Errorf("get performance timing: %w", err)
+	}
+
+	return &ports.PerformanceTiming{
+		NavigationStart:     timing.NavigationStart,
+		DOMContentLoadedEnd: timing.DOMContentLoadedEnd,
+		LoadEventEnd:        timing.LoadEventEnd,
 	}, nil
 }
 

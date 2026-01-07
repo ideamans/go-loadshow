@@ -9,15 +9,16 @@ import (
 
 // Browser is a mock implementation of ports.Browser.
 type Browser struct {
-	LaunchFunc             func(ctx context.Context, opts ports.BrowserOptions) error
-	NavigateFunc           func(url string) error
-	SetViewportFunc        func(viewportWidth, viewportHeight, screenWidth, screenHeight int, deviceScaleFactor float64) error
+	LaunchFunc               func(ctx context.Context, opts ports.BrowserOptions) error
+	NavigateFunc             func(ctx context.Context, url string) error
+	SetViewportFunc          func(viewportWidth, viewportHeight, screenWidth, screenHeight int, deviceScaleFactor float64) error
 	SetNetworkConditionsFunc func(conditions ports.NetworkConditions) error
-	SetCPUThrottlingFunc   func(rate float64) error
-	StartScreencastFunc    func(quality, maxWidth, maxHeight int) (<-chan ports.ScreenFrame, error)
-	StopScreencastFunc     func() error
-	GetPageInfoFunc        func() (*ports.PageInfo, error)
-	CloseFunc              func() error
+	SetCPUThrottlingFunc     func(rate float64) error
+	StartScreencastFunc      func(quality, maxWidth, maxHeight int) (<-chan ports.ScreenFrame, error)
+	StopScreencastFunc       func() error
+	GetPageInfoFunc          func() (*ports.PageInfo, error)
+	GetPerformanceTimingFunc func() (*ports.PerformanceTiming, error)
+	CloseFunc                func() error
 }
 
 func (m *Browser) Launch(ctx context.Context, opts ports.BrowserOptions) error {
@@ -27,9 +28,9 @@ func (m *Browser) Launch(ctx context.Context, opts ports.BrowserOptions) error {
 	return nil
 }
 
-func (m *Browser) Navigate(url string) error {
+func (m *Browser) Navigate(ctx context.Context, url string) error {
 	if m.NavigateFunc != nil {
-		return m.NavigateFunc(url)
+		return m.NavigateFunc(ctx, url)
 	}
 	return nil
 }
@@ -76,6 +77,13 @@ func (m *Browser) GetPageInfo() (*ports.PageInfo, error) {
 		return m.GetPageInfoFunc()
 	}
 	return &ports.PageInfo{}, nil
+}
+
+func (m *Browser) GetPerformanceTiming() (*ports.PerformanceTiming, error) {
+	if m.GetPerformanceTimingFunc != nil {
+		return m.GetPerformanceTimingFunc()
+	}
+	return &ports.PerformanceTiming{}, nil
 }
 
 func (m *Browser) Close() error {

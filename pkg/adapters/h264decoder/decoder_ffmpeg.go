@@ -15,10 +15,10 @@ import (
 
 // ffmpegDecoder implements H.264 decoding using ffmpeg external process.
 type ffmpegDecoder struct {
-	ffmpegPath string
-	mu         sync.Mutex
-	width      int
-	height     int
+	ffmpegPath  string
+	mu          sync.Mutex
+	width       int
+	height      int
 	initialized bool
 }
 

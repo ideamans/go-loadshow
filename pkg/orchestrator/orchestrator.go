@@ -130,7 +130,7 @@ func New(
 }
 
 // Run executes the complete pipeline.
-func (o *Orchestrator) Run(ctx context.Context, config Config) error {
+func (o *Orchestrator) Run(ctx context.Context, config Config) (RunResult, error) {
 	o.logger.Info(l10n.T("Starting pipeline"))
 
 	// 1. Layout calculation
@@ -139,7 +139,7 @@ func (o *Orchestrator) Run(ctx context.Context, config Config) error {
 	layout, err := o.layoutStage.Execute(ctx, layoutInput)
 	if err != nil {
 		o.logger.Error(l10n.F("Failed to calculate layout: %s", err))
-		return fmt.Errorf("layout stage: %w", err)
+		return RunResult{}, fmt.Errorf("layout stage: %w", err)
 	}
 	o.logger.Info(l10n.F("Layout calculated: %dx%d canvas, %d columns", config.CanvasWidth, config.CanvasHeight, config.Columns))
 
@@ -155,7 +155,7 @@ func (o *Orchestrator) Run(ctx context.Context, config Config) error {
 	record, err := o.recordStage.Execute(ctx, recordInput)
 	if err != nil {
 		o.logger.Error(l10n.F("Failed to record page: %s", err))
-		return fmt.Errorf("record stage: %w", err)
+		return RunResult{}, fmt.Errorf("record stage: %w", err)
 	}
 	o.logger.Info(l10n.F("Recording completed in %d ms", record.Timing.TotalDurationMs))
 
@@ -174,7 +174,7 @@ func (o *Orchestrator) Run(ctx context.Context, config Config) error {
 		b, err := o.bannerStage.Execute(ctx, bannerInput)
 		if err != nil {
 			o.logger.Error(l10n.F("Failed to generate banner: %s", err))
-			return fmt.Errorf("banner stage: %w", err)
+			return RunResult{}, fmt.Errorf("banner stage: %w", err)
 		}
 		banner = &b
 	}
@@ -185,7 +185,7 @@ func (o *Orchestrator) Run(ctx context.Context, config Config) error {
 	composite, err := o.compositeStage.Execute(ctx, compositeInput)
 	if err != nil {
 		o.logger.Error(l10n.F("Failed to composite frames: %s", err))
-		return fmt.Errorf("composite stage: %w", err)
+		return RunResult{}, fmt.Errorf("composite stage: %w", err)
 	}
 	o.logger.Info(l10n.T("Composition completed"))
 
@@ -195,19 +195,36 @@ func (o *Orchestrator) Run(ctx context.Context, config Config) error {
 	encoded, err := o.encodeStage.Execute(ctx, encodeInput)
 	if err != nil {
 		o.logger.Error(l10n.F("Failed to encode video: %s", err))
-		return fmt.Errorf("encode stage: %w", err)
+		return RunResult{}, fmt.Errorf("encode stage: %w", err)
 	}
 	o.logger.Info(l10n.F("Video encoded: %d bytes", len(encoded.VideoData)))
 
 	// 6. Write output file
 	if err := o.fs.WriteFile(config.OutputPath, encoded.VideoData); err != nil {
 		o.logger.Error(l10n.F("Failed to write output: %s", err))
-		return fmt.Errorf("write output: %w", err)
+		return RunResult{}, fmt.Errorf("write output: %w", err)
 	}
 
 	o.logger.Info(l10n.T("Pipeline completed successfully"))
 
-	return nil
+	// Build result for summary
+	result := RunResult{
+		DOMContentLoadedMs: record.Timing.DOMContentLoadedMs,
+		LoadCompleteMs:     record.Timing.LoadCompleteMs,
+		TotalDurationMs:    record.Timing.TotalDurationMs,
+		TimedOut:           record.Timing.TimedOut,
+		TimeoutSec:         record.Timing.TimeoutSec,
+		TotalBytes:         getTotalBytes(record.Frames),
+		PageTitle:          record.PageInfo.Title,
+		PageURL:            record.PageInfo.URL,
+		FrameCount:         len(record.Frames),
+		VideoDuration:      encoded.DurationMs,
+		VideoFileSize:      encoded.FileSize,
+		CanvasWidth:        config.CanvasWidth,
+		CanvasHeight:       config.CanvasHeight,
+	}
+
+	return result, nil
 }
 
 func (o *Orchestrator) buildLayoutInput(config Config) pipeline.LayoutInput {
@@ -246,10 +263,12 @@ func (o *Orchestrator) buildBannerInput(config Config, record pipeline.RecordRes
 		Height:     config.BannerHeight,
 		URL:        config.URL,
 		Title:      record.PageInfo.Title,
-		LoadTimeMs: record.Timing.TotalDurationMs,
+		LoadTimeMs: record.Timing.LoadCompleteMs,
 		TotalBytes: getTotalBytes(record.Frames),
 		Credit:     config.Credit,
 		Theme:      pipeline.DefaultBannerTheme(),
+		TimedOut:   record.Timing.TimedOut,
+		TimeoutSec: record.Timing.TimeoutSec,
 	}
 }
 
@@ -305,4 +324,30 @@ func getTotalBytes(frames []pipeline.RawFrame) int64 {
 
 func rgbaFromArray(c [4]uint8) color.RGBA {
 	return color.RGBA{R: c[0], G: c[1], B: c[2], A: c[3]}
+}
+
+// RunResult contains the results of a pipeline run for summary generation.
+type RunResult struct {
+	// Timing information
+	DOMContentLoadedMs int
+	LoadCompleteMs     int
+	TotalDurationMs    int
+	TimedOut           bool // True if recording ended due to timeout
+	TimeoutSec         int  // Timeout value in seconds
+
+	// Traffic information
+	TotalBytes int64
+
+	// Page information
+	PageTitle string
+	PageURL   string
+
+	// Video information
+	FrameCount    int
+	VideoDuration int // in ms (includes outro)
+	VideoFileSize int64
+
+	// Layout information
+	CanvasWidth  int
+	CanvasHeight int
 }

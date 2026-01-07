@@ -32,13 +32,15 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.BannerInput) (pipeli
 	s.logger.Debug("Generating banner")
 
 	// Create template variables
-	vars := NewTemplateVars(
+	vars := NewTemplateVarsWithTimeout(
 		input.Width,
 		input.URL,
 		input.Title,
 		input.LoadTimeMs,
 		input.TotalBytes,
 		input.Credit,
+		input.TimedOut,
+		input.TimeoutSec,
 	)
 
 	// Render HTML template

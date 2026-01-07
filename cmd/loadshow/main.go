@@ -20,10 +20,10 @@ import (
 	"github.com/user/loadshow/pkg/adapters/filesink"
 	"github.com/user/loadshow/pkg/adapters/ggrenderer"
 	"github.com/user/loadshow/pkg/adapters/logger"
-	"github.com/user/loadshow/pkg/adapters/smartdecoder"
-	"github.com/user/loadshow/pkg/adapters/smartencoder"
 	"github.com/user/loadshow/pkg/adapters/nullsink"
 	"github.com/user/loadshow/pkg/adapters/osfilesystem"
+	"github.com/user/loadshow/pkg/adapters/smartdecoder"
+	"github.com/user/loadshow/pkg/adapters/smartencoder"
 	"github.com/user/loadshow/pkg/config"
 	"github.com/user/loadshow/pkg/juxtapose"
 	"github.com/user/loadshow/pkg/loadshow"
@@ -34,6 +34,7 @@ import (
 	"github.com/user/loadshow/pkg/stages/encode"
 	"github.com/user/loadshow/pkg/stages/layout"
 	"github.com/user/loadshow/pkg/stages/record"
+	"github.com/user/loadshow/pkg/summarizer"
 )
 
 var version = "dev"
@@ -213,6 +214,12 @@ func recordCommand() *cli.Command {
 			},
 
 			// ===== 4. Performance Emulation =====
+			&cli.IntFlag{
+				Name:     "timeout-sec",
+				Value:    30,
+				Usage:    l10n.T("Recording timeout in seconds"),
+				Category: l10n.T(catPerformance),
+			},
 			&cli.Float64Flag{
 				Name:     "download-mbps",
 				Usage:    l10n.T("Download speed in Mbps (0 = unlimited)"),
@@ -331,6 +338,11 @@ func recordCommand() *cli.Command {
 				Value:    "./debug",
 				Usage:    l10n.T("Directory for debug output"),
 				Category: l10n.T(catDebug),
+			},
+			&cli.StringFlag{
+				Name:     "output-summary",
+				Usage:    l10n.T("Output execution summary to file (Markdown format)"),
+				Category: l10n.T(catOutput),
 			},
 
 			// ===== 9. Logging =====
@@ -515,12 +527,58 @@ func runRecord(c *cli.Context) error {
 	log.Info(l10n.F("Recording %s (%s preset, %s codec)...", url, c.String("preset"), codecName))
 
 	// Run pipeline
-	if err := orch.Run(ctx, orchConfig); err != nil {
+	result, err := orch.Run(ctx, orchConfig)
+	if err != nil {
 		return err
 	}
 
 	log.Info(l10n.F("Output saved to %s", c.String("output")))
+
+	// Write summary if requested
+	if summaryPath := c.String("output-summary"); summaryPath != "" {
+		summary := buildSummary(c, cfg, result, codecName)
+		formatter := summarizer.NewMarkdownFormatter(
+			summarizer.WithTranslator(l10n.T),
+			summarizer.WithVersion(version),
+		)
+		writer := summarizer.NewWriter(formatter)
+		if err := writer.Write(summaryPath, summary); err != nil {
+			log.Warn(l10n.F("Failed to write summary: %s", err))
+		} else {
+			log.Info(l10n.F("Summary saved to %s", summaryPath))
+		}
+	}
+
 	return nil
+}
+
+// buildSummary creates a Summary from recording results.
+func buildSummary(c *cli.Context, cfg loadshow.Config, result orchestrator.RunResult, codecName string) *summarizer.Summary {
+	return summarizer.NewBuilder().
+		WithPage(result.PageTitle, result.PageURL).
+		WithTiming(result.DOMContentLoadedMs, result.LoadCompleteMs, result.TotalDurationMs).
+		WithTimeout(result.TimedOut, result.TimeoutSec).
+		WithTraffic(result.TotalBytes).
+		WithSettings(summarizer.Settings{
+			Preset:        c.String("preset"),
+			Quality:       c.String("quality"),
+			Codec:         codecName,
+			ViewportWidth: cfg.ViewportWidth,
+			Columns:       cfg.Columns,
+			DownloadSpeed: cfg.DownloadSpeed,
+			UploadSpeed:   cfg.UploadSpeed,
+			CPUThrottling: cfg.CPUThrottling,
+		}).
+		WithVideo(summarizer.VideoInfo{
+			FrameCount:    result.FrameCount,
+			DurationMs:    result.VideoDuration,
+			FileSize:      result.VideoFileSize,
+			CanvasWidth:   result.CanvasWidth,
+			CanvasHeight:  result.CanvasHeight,
+			CRF:           cfg.VideoCRF,
+			OutroDuration: cfg.OutroMs,
+		}).
+		Build()
 }
 
 // buildRecordConfig creates a Config from preset and CLI overrides.
@@ -613,6 +671,11 @@ func buildRecordConfig(c *cli.Context) loadshow.Config {
 	}
 	if c.String("proxy-server") != "" {
 		builder.WithProxyServer(c.String("proxy-server"))
+	}
+
+	// Apply timeout
+	if c.Int("timeout-sec") > 0 {
+		builder.WithTimeoutSec(c.Int("timeout-sec"))
 	}
 
 	return builder.Build()

@@ -124,15 +124,15 @@ func createDecoder(codec Codec, opts Options) (*Decoder, Info, error) {
 	switch codec {
 	case CodecAV1:
 		return &Decoder{
-			inner: av1decoder.NewMP4Reader(),
-			info: Info{
+				inner: av1decoder.NewMP4Reader(),
+				info: Info{
+					Codec:   CodecAV1,
+					Backend: BackendLibaom,
+				},
+			}, Info{
 				Codec:   CodecAV1,
 				Backend: BackendLibaom,
-			},
-		}, Info{
-			Codec:   CodecAV1,
-			Backend: BackendLibaom,
-		}, nil
+			}, nil
 
 	case CodecH264:
 		// Check if H.264 decoding is available
@@ -148,15 +148,15 @@ func createDecoder(codec Codec, opts Options) (*Decoder, Info, error) {
 		}
 
 		return &Decoder{
-			inner: h264decoder.NewMP4Reader(),
-			info: Info{
+				inner: h264decoder.NewMP4Reader(),
+				info: Info{
+					Codec:   CodecH264,
+					Backend: backend,
+				},
+			}, Info{
 				Codec:   CodecH264,
 				Backend: backend,
-			},
-		}, Info{
-			Codec:   CodecH264,
-			Backend: backend,
-		}, nil
+			}, nil
 
 	case CodecUnknown:
 		return nil, Info{}, ErrUnsupportedCodec
