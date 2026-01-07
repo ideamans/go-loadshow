@@ -88,7 +88,7 @@ type PageInfo struct {
 
 // PerformanceTiming contains navigation timing metrics from Performance API.
 type PerformanceTiming struct {
-	NavigationStart      int64 // When navigation started
-	DOMContentLoadedEnd  int64 // When DOMContentLoaded event completed
-	LoadEventEnd         int64 // When load event completed
+	NavigationStart     int64 // When navigation started
+	DOMContentLoadedEnd int64 // When DOMContentLoaded event completed
+	LoadEventEnd        int64 // When load event completed
 }

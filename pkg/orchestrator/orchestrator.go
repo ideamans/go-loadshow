@@ -337,7 +337,7 @@ type RunResult struct {
 	PageURL   string
 
 	// Video information
-	FrameCount   int
+	FrameCount    int
 	VideoDuration int // in ms (includes outro)
 	VideoFileSize int64
 

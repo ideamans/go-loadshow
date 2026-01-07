@@ -79,10 +79,10 @@ func run() error {
 	if err := chromedp.Run(ctx,
 		network.Enable(),
 		network.EmulateNetworkConditions(
-			false,                    // offline
-			20,                       // latency (ms)
-			10*1024*1024/8,           // download throughput (10mbps in bytes/sec)
-			10*1024*1024/8,           // upload throughput (10mbps in bytes/sec)
+			false,          // offline
+			20,             // latency (ms)
+			10*1024*1024/8, // download throughput (10mbps in bytes/sec)
+			10*1024*1024/8, // upload throughput (10mbps in bytes/sec)
 		),
 		emulation.SetCPUThrottlingRate(4), // CPU throttling x4
 	); err != nil {

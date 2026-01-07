@@ -364,9 +364,9 @@ func (c Config) ToOrchestratorConfig(url, outputPath string) orchestrator.Config
 		BorderColor:     colorToArray(c.BorderColor),
 
 		// Recording
-		ViewportWidth: c.ViewportWidth,
+		ViewportWidth:     c.ViewportWidth,
 		ScreencastQuality: c.ScreencastQuality,
-		TimeoutMs:     30000,
+		TimeoutMs:         30000,
 		NetworkConditions: ports.NetworkConditions{
 			DownloadSpeed: c.DownloadSpeed,
 			UploadSpeed:   c.UploadSpeed,

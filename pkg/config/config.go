@@ -29,14 +29,14 @@ type Config struct {
 	ProgressHeight int `yaml:"progress_height"`
 
 	// Recording
-	ViewportWidth int                    `yaml:"viewport_width"`
-	TimeoutMs     int                    `yaml:"timeout_ms"`
-	Network       NetworkConfig          `yaml:"network"`
-	CPUThrottling float64                `yaml:"cpu_throttling"`
-	Headers       map[string]string      `yaml:"headers"`
-	UserAgent     string                 `yaml:"user_agent"`
-	Headless      bool                   `yaml:"headless"`
-	ChromePath    string                 `yaml:"chrome_path"`
+	ViewportWidth int               `yaml:"viewport_width"`
+	TimeoutMs     int               `yaml:"timeout_ms"`
+	Network       NetworkConfig     `yaml:"network"`
+	CPUThrottling float64           `yaml:"cpu_throttling"`
+	Headers       map[string]string `yaml:"headers"`
+	UserAgent     string            `yaml:"user_agent"`
+	Headless      bool              `yaml:"headless"`
+	ChromePath    string            `yaml:"chrome_path"`
 
 	// Banner
 	BannerEnabled bool        `yaml:"banner"`
@@ -115,8 +115,8 @@ func Defaults() Config {
 
 		// Encoding
 		VideoCRF: 25,
-		FPS:     30.0,
-		OutroMs: 1000,
+		FPS:      30.0,
+		OutroMs:  1000,
 
 		// Debug
 		DebugDir: "./debug",

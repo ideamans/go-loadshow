@@ -81,12 +81,12 @@ var _ ports.DebugSink = (*DebugSink)(nil)
 // NullSink is a no-op implementation of ports.DebugSink.
 type NullSink struct{}
 
-func (m *NullSink) Enabled() bool                              { return false }
-func (m *NullSink) SaveLayoutJSON(data []byte) error           { return nil }
-func (m *NullSink) SaveLayoutSVG(data []byte) error            { return nil }
-func (m *NullSink) SaveRecordingJSON(data []byte) error        { return nil }
-func (m *NullSink) SaveRawFrame(index int, data []byte) error  { return nil }
-func (m *NullSink) SaveBanner(img image.Image) error           { return nil }
+func (m *NullSink) Enabled() bool                                      { return false }
+func (m *NullSink) SaveLayoutJSON(data []byte) error                   { return nil }
+func (m *NullSink) SaveLayoutSVG(data []byte) error                    { return nil }
+func (m *NullSink) SaveRecordingJSON(data []byte) error                { return nil }
+func (m *NullSink) SaveRawFrame(index int, data []byte) error          { return nil }
+func (m *NullSink) SaveBanner(img image.Image) error                   { return nil }
 func (m *NullSink) SaveComposedFrame(index int, img image.Image) error { return nil }
 
 var _ ports.DebugSink = (*NullSink)(nil)

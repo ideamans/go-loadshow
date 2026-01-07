@@ -124,9 +124,9 @@ func (e *ffmpegEncoder) init(width, height int, fps float64, opts ports.EncoderO
 		"-pix_fmt", "rgba", // Input pixel format
 		"-s", fmt.Sprintf("%dx%d", width, height), // Input size
 		"-r", fmt.Sprintf("%.2f", fps), // Input frame rate
-		"-i", "pipe:0",       // Read from stdin
-		"-c:v", "libx264",    // Use libx264
-		"-preset", "fast",    // Encoding preset
+		"-i", "pipe:0", // Read from stdin
+		"-c:v", "libx264", // Use libx264
+		"-preset", "fast", // Encoding preset
 		"-pix_fmt", "yuv420p", // Output pixel format
 	}
 

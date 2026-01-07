@@ -23,11 +23,11 @@ func TestStage_Execute(t *testing.T) {
 	}
 
 	input := pipeline.EncodeInput{
-		Frames:  frames,
-		OutroMs: 1000,
+		Frames:   frames,
+		OutroMs:  1000,
 		VideoCRF: 30,
-		Bitrate: 1000,
-		FPS:     30.0,
+		Bitrate:  1000,
+		FPS:      30.0,
 	}
 
 	result, err := stage.Execute(context.Background(), input)
@@ -73,11 +73,11 @@ func TestStage_Execute_NoOutro(t *testing.T) {
 	}
 
 	input := pipeline.EncodeInput{
-		Frames:  frames,
-		OutroMs: 0, // No outro
+		Frames:   frames,
+		OutroMs:  0, // No outro
 		VideoCRF: 30,
-		Bitrate: 1000,
-		FPS:     30.0,
+		Bitrate:  1000,
+		FPS:      30.0,
 	}
 
 	_, err := stage.Execute(context.Background(), input)

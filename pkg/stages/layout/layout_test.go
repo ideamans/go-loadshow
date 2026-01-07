@@ -24,8 +24,8 @@ func TestComputeLayout_MatchTypeScript(t *testing.T) {
 		BorderWidth:    1,
 		Indent:         20,
 		Outdent:        20,
-		BannerHeight:   0,  // TypeScript layout doesn't include banner
-		ProgressHeight: 0,  // TypeScript layout doesn't include progress in main layout
+		BannerHeight:   0, // TypeScript layout doesn't include banner
+		ProgressHeight: 0, // TypeScript layout doesn't include progress in main layout
 	}
 
 	result := ComputeLayout(input)
@@ -155,13 +155,13 @@ func TestComputeLayout_ColumnCalculation(t *testing.T) {
 // TestComputeLayout_IndentOutdent tests that indent and outdent are applied correctly.
 func TestComputeLayout_IndentOutdent(t *testing.T) {
 	tests := []struct {
-		name             string
-		indent           int
-		outdent          int
-		expectedCol0Y    int // first column Y
-		expectedCol1Y    int // second column Y
-		expectedCol0H    int // first column height
-		expectedCol1H    int // second column height
+		name          string
+		indent        int
+		outdent       int
+		expectedCol0Y int // first column Y
+		expectedCol1Y int // second column Y
+		expectedCol0H int // first column height
+		expectedCol1H int // second column height
 	}{
 		{
 			name:          "default indent/outdent",

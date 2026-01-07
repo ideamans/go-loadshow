@@ -138,11 +138,11 @@ func TestCompositeToEncode(t *testing.T) {
 	encodeStage := encode.NewStage(encoder, logger.NewNoop())
 
 	encodeInput := pipeline.EncodeInput{
-		Frames:  composedFrames,
-		OutroMs: 500,
+		Frames:   composedFrames,
+		OutroMs:  500,
 		VideoCRF: 40,
-		Bitrate: 1000,
-		FPS:     30.0,
+		Bitrate:  1000,
+		FPS:      30.0,
 	}
 
 	encodeResult, err := encodeStage.Execute(context.Background(), encodeInput)
@@ -392,10 +392,10 @@ func TestFullPipelineWithMockBrowser(t *testing.T) {
 	// Encode
 	encodeStage := encode.NewStage(encoder, logger.NewNoop())
 	encodeInput := pipeline.EncodeInput{
-		Frames:  compositeResult.Frames,
-		OutroMs: 200,
+		Frames:   compositeResult.Frames,
+		OutroMs:  200,
 		VideoCRF: 45,
-		FPS:     30.0,
+		FPS:      30.0,
 	}
 
 	encodeResult, err := encodeStage.Execute(context.Background(), encodeInput)
@@ -523,7 +523,7 @@ func TestOrchestratorWithDebugSink(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	err = orch.Run(ctx, config)
+	_, err = orch.Run(ctx, config)
 	if err != nil {
 		t.Fatalf("Orchestrator failed: %v", err)
 	}
