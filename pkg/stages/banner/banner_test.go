@@ -188,6 +188,100 @@ func TestRenderHTML(t *testing.T) {
 	}
 }
 
+func TestNewTemplateVarsWithTimeout(t *testing.T) {
+	tests := []struct {
+		name           string
+		loadTimeMs     int
+		timedOut       bool
+		timeoutSec     int
+		wantTimeValue  string
+	}{
+		{
+			name:          "normal load time",
+			loadTimeMs:    2500,
+			timedOut:      false,
+			timeoutSec:    30,
+			wantTimeValue: "2.50 sec.",
+		},
+		{
+			name:          "timeout occurred",
+			loadTimeMs:    0,
+			timedOut:      true,
+			timeoutSec:    1,
+			wantTimeValue: "Timeout (1s)",
+		},
+		{
+			name:          "timeout with 30 seconds",
+			loadTimeMs:    0,
+			timedOut:      true,
+			timeoutSec:    30,
+			wantTimeValue: "Timeout (30s)",
+		},
+		{
+			name:          "fast load time",
+			loadTimeMs:    500,
+			timedOut:      false,
+			timeoutSec:    30,
+			wantTimeValue: "0.50 sec.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vars := NewTemplateVarsWithTimeout(
+				400,
+				"https://example.com",
+				"Test",
+				tt.loadTimeMs,
+				1024,
+				"loadshow",
+				tt.timedOut,
+				tt.timeoutSec,
+			)
+
+			if vars.OnLoadTimeValue != tt.wantTimeValue {
+				t.Errorf("OnLoadTimeValue = %q, want %q", vars.OnLoadTimeValue, tt.wantTimeValue)
+			}
+		})
+	}
+}
+
+func TestStage_Execute_WithTimeout(t *testing.T) {
+	mockCapturer := mocks.NewHTMLCapturer()
+	mockSink := mocks.NewDebugSink(false)
+
+	stage := NewStage(mockCapturer, mockSink, logger.NewNoop())
+
+	input := pipeline.BannerInput{
+		Width:      400,
+		Height:     80,
+		URL:        "https://example.com",
+		Title:      "Test Page",
+		LoadTimeMs: 0,
+		TotalBytes: 1024,
+		Credit:     "loadshow",
+		Theme:      pipeline.DefaultBannerTheme(),
+		TimedOut:   true,
+		TimeoutSec: 5,
+	}
+
+	_, err := stage.Execute(context.Background(), input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Check that CaptureHTMLWithViewport was called with HTML containing timeout
+	if len(mockCapturer.CaptureHTMLWithViewportCalls) != 1 {
+		t.Fatalf("expected 1 call to CaptureHTMLWithViewport, got %d",
+			len(mockCapturer.CaptureHTMLWithViewportCalls))
+	}
+
+	html := mockCapturer.CaptureHTMLWithViewportCalls[0].HTML
+	if !contains(html, "Timeout (5s)") {
+		t.Error("expected HTML to contain 'Timeout (5s)'")
+	}
+}
+
 // contains checks if s contains substr
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))

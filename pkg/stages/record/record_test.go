@@ -160,3 +160,146 @@ func TestStage_Execute_Timeout(t *testing.T) {
 		t.Error("expected timeout to stop frame collection")
 	}
 }
+
+func TestStage_Execute_TimeoutFieldsSet(t *testing.T) {
+	// Create a browser that sends frames slowly to trigger timeout
+	mockBrowser := &mocks.Browser{
+		StartScreencastFunc: func(quality, maxWidth, maxHeight int) (<-chan ports.ScreenFrame, error) {
+			ch := make(chan ports.ScreenFrame)
+			go func() {
+				defer close(ch)
+				for i := 0; i < 100; i++ {
+					ch <- ports.ScreenFrame{
+						TimestampMs: i * 100,
+						Data:        []byte{0xFF},
+					}
+					time.Sleep(100 * time.Millisecond)
+				}
+			}()
+			return ch, nil
+		},
+		GetPageInfoFunc: func() (*ports.PageInfo, error) {
+			return &ports.PageInfo{URL: "https://example.com"}, nil
+		},
+	}
+
+	mockSink := mocks.NewDebugSink(false)
+	stage := New(mockBrowser, mockSink, logger.NewNoop(), ports.BrowserOptions{Headless: true})
+
+	input := pipeline.DefaultRecordInput()
+	input.URL = "https://example.com"
+	input.Screen = pipeline.Dimension{Width: 144, Height: 1739}
+	input.TimeoutMs = 250 // 250ms timeout
+
+	result, err := stage.Execute(context.Background(), input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Check that TimedOut is set
+	if !result.Timing.TimedOut {
+		t.Error("expected TimedOut to be true")
+	}
+
+	// Check that TimeoutSec is set correctly (250ms / 1000 = 0, but should be at least the value)
+	// Note: TimeoutSec = input.TimeoutMs / 1000, so 250ms = 0 seconds
+	expectedTimeoutSec := input.TimeoutMs / 1000
+	if result.Timing.TimeoutSec != expectedTimeoutSec {
+		t.Errorf("expected TimeoutSec %d, got %d", expectedTimeoutSec, result.Timing.TimeoutSec)
+	}
+}
+
+func TestStage_Execute_NoTimeout(t *testing.T) {
+	// Create a browser that completes quickly
+	mockBrowser := &mocks.Browser{
+		StartScreencastFunc: func(quality, maxWidth, maxHeight int) (<-chan ports.ScreenFrame, error) {
+			ch := make(chan ports.ScreenFrame)
+			go func() {
+				defer close(ch)
+				// Send 3 frames quickly and close
+				for i := 0; i < 3; i++ {
+					ch <- ports.ScreenFrame{
+						TimestampMs: i * 100,
+						Data:        []byte{0xFF},
+					}
+				}
+			}()
+			return ch, nil
+		},
+		GetPageInfoFunc: func() (*ports.PageInfo, error) {
+			return &ports.PageInfo{
+				Title: "Test Page",
+				URL:   "https://example.com",
+			}, nil
+		},
+		GetPerformanceTimingFunc: func() (*ports.PerformanceTiming, error) {
+			return &ports.PerformanceTiming{
+				DOMContentLoadedEnd: 500,
+				LoadEventEnd:        1000,
+			}, nil
+		},
+	}
+
+	mockSink := mocks.NewDebugSink(false)
+	stage := New(mockBrowser, mockSink, logger.NewNoop(), ports.BrowserOptions{Headless: true})
+
+	input := pipeline.DefaultRecordInput()
+	input.URL = "https://example.com"
+	input.Screen = pipeline.Dimension{Width: 144, Height: 1739}
+	input.TimeoutMs = 5000 // Long timeout
+
+	result, err := stage.Execute(context.Background(), input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Check that TimedOut is false
+	if result.Timing.TimedOut {
+		t.Error("expected TimedOut to be false")
+	}
+
+	// Check that performance timing was captured
+	if result.Timing.DOMContentLoadedMs != 500 {
+		t.Errorf("expected DOMContentLoadedMs 500, got %d", result.Timing.DOMContentLoadedMs)
+	}
+	if result.Timing.LoadCompleteMs != 1000 {
+		t.Errorf("expected LoadCompleteMs 1000, got %d", result.Timing.LoadCompleteMs)
+	}
+}
+
+func TestStage_Execute_PerformanceTimingError(t *testing.T) {
+	mockBrowser := &mocks.Browser{
+		StartScreencastFunc: func(quality, maxWidth, maxHeight int) (<-chan ports.ScreenFrame, error) {
+			ch := make(chan ports.ScreenFrame)
+			go func() {
+				defer close(ch)
+				ch <- ports.ScreenFrame{TimestampMs: 0, Data: []byte{0xFF}}
+			}()
+			return ch, nil
+		},
+		GetPageInfoFunc: func() (*ports.PageInfo, error) {
+			return &ports.PageInfo{}, nil
+		},
+		GetPerformanceTimingFunc: func() (*ports.PerformanceTiming, error) {
+			return nil, context.DeadlineExceeded // Simulate error
+		},
+	}
+
+	mockSink := mocks.NewDebugSink(false)
+	stage := New(mockBrowser, mockSink, logger.NewNoop(), ports.BrowserOptions{Headless: true})
+
+	input := pipeline.DefaultRecordInput()
+	input.URL = "https://example.com"
+	input.Screen = pipeline.Dimension{Width: 144, Height: 1739}
+	input.TimeoutMs = 1000
+
+	result, err := stage.Execute(context.Background(), input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should still succeed, just with 0 timing values
+	if result.Timing.DOMContentLoadedMs != 0 {
+		t.Errorf("expected DOMContentLoadedMs 0 on error, got %d", result.Timing.DOMContentLoadedMs)
+	}
+}
