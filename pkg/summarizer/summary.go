@@ -35,6 +35,8 @@ type TimingInfo struct {
 	DOMContentLoadedMs int
 	LoadCompleteMs     int
 	TotalDurationMs    int
+	TimedOut           bool // True if recording ended due to timeout
+	TimeoutSec         int  // Timeout value in seconds
 }
 
 // TrafficInfo contains network traffic information.
@@ -104,6 +106,13 @@ func (b *Builder) WithTiming(domContentLoaded, loadComplete, totalDuration int) 
 		LoadCompleteMs:     loadComplete,
 		TotalDurationMs:    totalDuration,
 	}
+	return b
+}
+
+// WithTimeout sets timeout information.
+func (b *Builder) WithTimeout(timedOut bool, timeoutSec int) *Builder {
+	b.summary.Timing.TimedOut = timedOut
+	b.summary.Timing.TimeoutSec = timeoutSec
 	return b
 }
 

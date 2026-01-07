@@ -116,25 +116,44 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.RecordInput) (pipeli
 		return result, fmt.Errorf("start screencast: %w", err)
 	}
 
-	// Create timeout context
+	// Create timeout context for entire recording (including navigation)
 	timeout := time.Duration(input.TimeoutMs) * time.Millisecond
 	recordCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	// Start navigation
+	// Track timeout value for reporting
+	timeoutSec := input.TimeoutMs / 1000
+	timedOut := false
+
+	// Start navigation in background
 	s.logger.Debug("Navigating to %s", input.URL)
 	navStart := time.Now()
-	if err := s.browser.Navigate(input.URL); err != nil {
-		return result, fmt.Errorf("navigate: %w", err)
-	}
+	navDone := make(chan error, 1)
+	go func() {
+		navDone <- s.browser.Navigate(recordCtx, input.URL)
+	}()
 
-	// Collect frames
+	// Collect frames while navigation is in progress
 	frameIndex := 0
 	for {
 		select {
 		case <-recordCtx.Done():
-			// Timeout or context cancelled
+			// Timeout - mark as timed out and exit loop
+			timedOut = true
 			goto done
+		case err := <-navDone:
+			// Navigation completed (or failed)
+			if err != nil {
+				if recordCtx.Err() != nil {
+					// Timeout caused navigation to fail
+					timedOut = true
+					s.logger.Debug("Navigation timed out")
+				} else {
+					s.logger.Debug("Navigation error: %s", err)
+				}
+			}
+			// Continue collecting frames after navigation
+			// until screencast channel closes or timeout
 		case frame, ok := <-frameChan:
 			if !ok {
 				// Channel closed, recording complete
@@ -163,15 +182,23 @@ done:
 	s.browser.StopScreencast()
 	s.logger.Debug("Captured %d frames", len(result.Frames))
 
-	// Get page info
+	// Get page info (may fail if timed out before page loaded)
 	pageInfo, err := s.browser.GetPageInfo()
 	if err != nil {
-		return result, fmt.Errorf("get page info: %w", err)
+		if timedOut {
+			s.logger.Debug("Failed to get page info after timeout: %s", err)
+			// Use URL as fallback
+			result.PageInfo = ports.PageInfo{URL: input.URL}
+		} else {
+			return result, fmt.Errorf("get page info: %w", err)
+		}
+	} else {
+		result.PageInfo = *pageInfo
 	}
-	result.PageInfo = *pageInfo
 
-	// Get performance timing
-	perfTiming, err := s.browser.GetPerformanceTiming()
+	// Get performance timing (may fail if timed out)
+	var perfTiming *ports.PerformanceTiming
+	perfTiming, err = s.browser.GetPerformanceTiming()
 	if err != nil {
 		s.logger.Debug("Failed to get performance timing: %s", err)
 		// Continue without timing data
@@ -181,6 +208,8 @@ done:
 	totalDuration := time.Since(navStart)
 	result.Timing = pipeline.TimingInfo{
 		TotalDurationMs: int(totalDuration.Milliseconds()),
+		TimedOut:        timedOut,
+		TimeoutSec:      timeoutSec,
 	}
 
 	// Set timing from performance API

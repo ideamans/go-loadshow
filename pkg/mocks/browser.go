@@ -10,7 +10,7 @@ import (
 // Browser is a mock implementation of ports.Browser.
 type Browser struct {
 	LaunchFunc               func(ctx context.Context, opts ports.BrowserOptions) error
-	NavigateFunc             func(url string) error
+	NavigateFunc             func(ctx context.Context, url string) error
 	SetViewportFunc          func(viewportWidth, viewportHeight, screenWidth, screenHeight int, deviceScaleFactor float64) error
 	SetNetworkConditionsFunc func(conditions ports.NetworkConditions) error
 	SetCPUThrottlingFunc     func(rate float64) error
@@ -28,9 +28,9 @@ func (m *Browser) Launch(ctx context.Context, opts ports.BrowserOptions) error {
 	return nil
 }
 
-func (m *Browser) Navigate(url string) error {
+func (m *Browser) Navigate(ctx context.Context, url string) error {
 	if m.NavigateFunc != nil {
-		return m.NavigateFunc(url)
+		return m.NavigateFunc(ctx, url)
 	}
 	return nil
 }

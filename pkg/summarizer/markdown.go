@@ -58,9 +58,22 @@ func (f *MarkdownFormatter) Format(summary *Summary) string {
 	sb.WriteString(fmt.Sprintf("## %s\n\n", t("Results")))
 	sb.WriteString(fmt.Sprintf("- `%s` %s\n", t("Page Title"), summary.Page.Title))
 	sb.WriteString(fmt.Sprintf("- `%s` %s\n", t("URL"), summary.Page.URL))
-	sb.WriteString(fmt.Sprintf("- `%s (DOMContentLoaded)` %d ms\n", t("DOM Content Loaded"), summary.Timing.DOMContentLoadedMs))
-	sb.WriteString(fmt.Sprintf("- `%s (Load)` %d ms\n", t("Load Complete"), summary.Timing.LoadCompleteMs))
-	sb.WriteString(fmt.Sprintf("- `%s` %d ms\n", t("Total Duration"), summary.Timing.TotalDurationMs))
+
+	// DOM Content Loaded - show N/A if not available or if timed out before DCL
+	timeoutMs := summary.Timing.TimeoutSec * 1000
+	if summary.Timing.DOMContentLoadedMs == 0 || (summary.Timing.TimedOut && summary.Timing.DOMContentLoadedMs > timeoutMs) {
+		sb.WriteString(fmt.Sprintf("- `%s (DOMContentLoaded)` N/A\n", t("DOM Content Loaded")))
+	} else {
+		sb.WriteString(fmt.Sprintf("- `%s (DOMContentLoaded)` %d ms\n", t("DOM Content Loaded"), summary.Timing.DOMContentLoadedMs))
+	}
+
+	// Load Complete - show timeout if applicable
+	if summary.Timing.TimedOut {
+		sb.WriteString(fmt.Sprintf("- `%s (Load)` %s (%ds)\n", t("Load Complete"), t("Timeout"), summary.Timing.TimeoutSec))
+	} else {
+		sb.WriteString(fmt.Sprintf("- `%s (Load)` %d ms\n", t("Load Complete"), summary.Timing.LoadCompleteMs))
+	}
+
 	sb.WriteString(fmt.Sprintf("- `%s` %s (%d bytes)\n", t("Total Traffic"), formatBytes(summary.Traffic.TotalBytes), summary.Traffic.TotalBytes))
 	sb.WriteString("\n")
 

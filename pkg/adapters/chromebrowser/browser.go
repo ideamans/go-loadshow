@@ -134,9 +134,21 @@ func (b *Browser) Launch(ctx context.Context, opts ports.BrowserOptions) error {
 	return nil
 }
 
-// Navigate loads the specified URL.
-func (b *Browser) Navigate(url string) error {
-	return chromedp.Run(b.ctx, chromedp.Navigate(url))
+// Navigate loads the specified URL with context for timeout control.
+func (b *Browser) Navigate(ctx context.Context, url string) error {
+	// Create a derived context that inherits both the browser context and the timeout
+	// We need to use the browser's context for chromedp, but respect the timeout from ctx
+	done := make(chan error, 1)
+	go func() {
+		done <- chromedp.Run(b.ctx, chromedp.Navigate(url))
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-done:
+		return err
+	}
 }
 
 // SetViewport sets the browser viewport dimensions with device scale factor.

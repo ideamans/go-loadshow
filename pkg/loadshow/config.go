@@ -81,6 +81,9 @@ type Config struct {
 	// Browser options
 	IgnoreHTTPSErrors bool   // Ignore HTTPS certificate errors
 	ProxyServer       string // HTTP proxy server (e.g., "http://proxy:8080")
+
+	// Timeout
+	TimeoutSec int // Recording timeout in seconds (default: 30)
 }
 
 // ConfigBuilder provides a fluent interface for building Config.
@@ -136,6 +139,9 @@ func desktopDefaults() Config {
 
 		// CPU (no throttling)
 		CPUThrottling: 1.0,
+
+		// Timeout
+		TimeoutSec: 30,
 	}
 }
 
@@ -173,6 +179,9 @@ func mobileDefaults() Config {
 
 		// CPU (4x slower)
 		CPUThrottling: 4.0,
+
+		// Timeout
+		TimeoutSec: 30,
 	}
 }
 
@@ -334,6 +343,12 @@ func (b *ConfigBuilder) WithProxyServer(proxy string) *ConfigBuilder {
 	return b
 }
 
+// WithTimeoutSec sets the recording timeout in seconds.
+func (b *ConfigBuilder) WithTimeoutSec(sec int) *ConfigBuilder {
+	b.config.TimeoutSec = sec
+	return b
+}
+
 // MbpsToBytes converts megabits per second to bytes per second.
 // Uses 1024 as the base (1 Mbps = 1024 * 1024 / 8 bytes/sec).
 // Accepts float64 for fractional Mbps values (e.g., 1.5 Mbps).
@@ -366,7 +381,7 @@ func (c Config) ToOrchestratorConfig(url, outputPath string) orchestrator.Config
 		// Recording
 		ViewportWidth:     c.ViewportWidth,
 		ScreencastQuality: c.ScreencastQuality,
-		TimeoutMs:         30000,
+		TimeoutMs:         c.TimeoutSec * 1000,
 		NetworkConditions: ports.NetworkConditions{
 			DownloadSpeed: c.DownloadSpeed,
 			UploadSpeed:   c.UploadSpeed,

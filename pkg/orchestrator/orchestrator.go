@@ -212,6 +212,8 @@ func (o *Orchestrator) Run(ctx context.Context, config Config) (RunResult, error
 		DOMContentLoadedMs: record.Timing.DOMContentLoadedMs,
 		LoadCompleteMs:     record.Timing.LoadCompleteMs,
 		TotalDurationMs:    record.Timing.TotalDurationMs,
+		TimedOut:           record.Timing.TimedOut,
+		TimeoutSec:         record.Timing.TimeoutSec,
 		TotalBytes:         getTotalBytes(record.Frames),
 		PageTitle:          record.PageInfo.Title,
 		PageURL:            record.PageInfo.URL,
@@ -261,10 +263,12 @@ func (o *Orchestrator) buildBannerInput(config Config, record pipeline.RecordRes
 		Height:     config.BannerHeight,
 		URL:        config.URL,
 		Title:      record.PageInfo.Title,
-		LoadTimeMs: record.Timing.TotalDurationMs,
+		LoadTimeMs: record.Timing.LoadCompleteMs,
 		TotalBytes: getTotalBytes(record.Frames),
 		Credit:     config.Credit,
 		Theme:      pipeline.DefaultBannerTheme(),
+		TimedOut:   record.Timing.TimedOut,
+		TimeoutSec: record.Timing.TimeoutSec,
 	}
 }
 
@@ -328,6 +332,8 @@ type RunResult struct {
 	DOMContentLoadedMs int
 	LoadCompleteMs     int
 	TotalDurationMs    int
+	TimedOut           bool // True if recording ended due to timeout
+	TimeoutSec         int  // Timeout value in seconds
 
 	// Traffic information
 	TotalBytes int64

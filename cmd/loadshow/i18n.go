@@ -72,6 +72,9 @@ func init() {
 		// CPU throttling flags
 		"CPU slowdown factor (1.0 = no throttling, 4.0 = 4x slower)": "CPUスローダウン係数（1.0 = 制限なし、4.0 = 4倍遅く）",
 
+		// Timeout flags
+		"Recording timeout in seconds": "記録のタイムアウト秒数",
+
 		// Banner flags
 		"Custom text shown in banner (default: loadshow)": "バナーに表示するカスタムテキスト（デフォルト: loadshow）",
 
@@ -141,6 +144,7 @@ func init() {
 		"CPU Throttling": "CPUスロットリング",
 		"Unlimited":      "無制限",
 		"None":           "なし",
+		"Timeout":        "タイムアウト",
 
 		// Video details section
 		"Frame Count":     "フレーム数",

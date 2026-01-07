@@ -142,6 +142,8 @@ type TimingInfo struct {
 	DOMContentLoadedMs int
 	LoadCompleteMs     int
 	TotalDurationMs    int
+	TimedOut           bool // True if recording ended due to timeout
+	TimeoutSec         int  // Timeout value in seconds
 }
 
 // =============================================================================
@@ -158,6 +160,8 @@ type BannerInput struct {
 	TotalBytes int64
 	Credit     string // Custom credit text (default: "loadshow")
 	Theme      BannerTheme
+	TimedOut   bool // True if recording ended due to timeout
+	TimeoutSec int  // Timeout value in seconds
 }
 
 // BannerTheme defines banner styling.

@@ -214,6 +214,12 @@ func recordCommand() *cli.Command {
 			},
 
 			// ===== 4. Performance Emulation =====
+			&cli.IntFlag{
+				Name:     "timeout-sec",
+				Value:    30,
+				Usage:    l10n.T("Recording timeout in seconds"),
+				Category: l10n.T(catPerformance),
+			},
 			&cli.Float64Flag{
 				Name:     "download-mbps",
 				Usage:    l10n.T("Download speed in Mbps (0 = unlimited)"),
@@ -551,6 +557,7 @@ func buildSummary(c *cli.Context, cfg loadshow.Config, result orchestrator.RunRe
 	return summarizer.NewBuilder().
 		WithPage(result.PageTitle, result.PageURL).
 		WithTiming(result.DOMContentLoadedMs, result.LoadCompleteMs, result.TotalDurationMs).
+		WithTimeout(result.TimedOut, result.TimeoutSec).
 		WithTraffic(result.TotalBytes).
 		WithSettings(summarizer.Settings{
 			Preset:        c.String("preset"),
@@ -664,6 +671,11 @@ func buildRecordConfig(c *cli.Context) loadshow.Config {
 	}
 	if c.String("proxy-server") != "" {
 		builder.WithProxyServer(c.String("proxy-server"))
+	}
+
+	// Apply timeout
+	if c.Int("timeout-sec") > 0 {
+		builder.WithTimeoutSec(c.Int("timeout-sec"))
 	}
 
 	return builder.Build()
