@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 
 	"github.com/user/loadshow/pkg/ports"
@@ -34,6 +35,8 @@ type Result struct {
 type Options struct {
 	// Gap is the horizontal gap between the two videos in pixels.
 	Gap int
+	// BorderColor is the color of the gap between videos.
+	BorderColor color.Color
 	// FPS is the output frame rate.
 	FPS float64
 	// Quality is the encoding quality (CRF 0-63, lower is better).
@@ -42,13 +45,17 @@ type Options struct {
 	Bitrate int
 }
 
+// DefaultBorderColor is the default border color (#505050, same as progress bar background).
+var DefaultBorderColor = color.RGBA{R: 80, G: 80, B: 80, A: 255}
+
 // DefaultOptions returns default options.
 func DefaultOptions() Options {
 	return Options{
-		Gap:     10,
-		FPS:     30.0,
-		Quality: 30,
-		Bitrate: 0,
+		Gap:         1,
+		BorderColor: DefaultBorderColor,
+		FPS:         30.0,
+		Quality:     30,
+		Bitrate:     0,
 	}
 }
 
@@ -168,8 +175,9 @@ func (s *Stage) Execute(ctx context.Context, input Input) (Result, error) {
 		// Composite frames side by side
 		output := image.NewRGBA(image.Rect(0, 0, outputWidth, outputHeight))
 
-		// Fill with black background
-		draw.Draw(output, output.Bounds(), image.Black, image.Point{}, draw.Src)
+		// Fill background with border color
+		bgColor := image.NewUniform(s.opts.BorderColor)
+		draw.Draw(output, output.Bounds(), bgColor, image.Point{}, draw.Src)
 
 		// Draw left video (vertically centered)
 		leftY := (outputHeight - leftHeight) / 2

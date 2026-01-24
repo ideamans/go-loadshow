@@ -401,8 +401,13 @@ func juxtaposeCommand() *cli.Command {
 			},
 			&cli.IntFlag{
 				Name:     "gap",
-				Value:    10,
+				Value:    1,
 				Usage:    l10n.T("Gap between videos in pixels"),
+				Category: l10n.T(catLayoutStyle),
+			},
+			&cli.StringFlag{
+				Name:     "border-color",
+				Usage:    l10n.T("Border color between videos (hex, e.g., #505050)"),
 				Category: l10n.T(catLayoutStyle),
 			},
 		},
@@ -782,10 +787,16 @@ func runJuxtapose(c *cli.Context) error {
 
 	// Create juxtapose options
 	opts := juxtapose.Options{
-		Gap:     c.Int("gap"),
-		FPS:     30.0,
-		Quality: videoCRF,
-		Bitrate: 0,
+		Gap:         c.Int("gap"),
+		BorderColor: juxtapose.DefaultBorderColor,
+		FPS:         30.0,
+		Quality:     videoCRF,
+		Bitrate:     0,
+	}
+
+	// Apply border color if specified
+	if c.String("border-color") != "" {
+		opts.BorderColor = config.ParseColor(c.String("border-color"))
 	}
 
 	// Create and run juxtapose stage
