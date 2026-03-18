@@ -139,7 +139,6 @@ func TestCompositeToEncode(t *testing.T) {
 
 	encodeInput := pipeline.EncodeInput{
 		Frames:   composedFrames,
-		OutroMs:  500,
 		VideoCRF: 40,
 		Bitrate:  1000,
 		FPS:      30.0,
@@ -198,7 +197,6 @@ func TestCompositeToEncodeH264(t *testing.T) {
 
 	encodeInput := pipeline.EncodeInput{
 		Frames:   composedFrames,
-		OutroMs:  500,
 		VideoCRF: 40,
 		Bitrate:  1000,
 		FPS:      30.0,
@@ -278,7 +276,7 @@ func TestFullPipelineWithH264(t *testing.T) {
 	encodeStage := encode.NewStage(encoder, logger.NewNoop())
 	encodeInput := pipeline.EncodeInput{
 		Frames:   compositeResult.Frames,
-		OutroMs:  200,
+
 		VideoCRF: 45,
 		FPS:      30.0,
 	}
@@ -393,7 +391,7 @@ func TestFullPipelineWithMockBrowser(t *testing.T) {
 	encodeStage := encode.NewStage(encoder, logger.NewNoop())
 	encodeInput := pipeline.EncodeInput{
 		Frames:   compositeResult.Frames,
-		OutroMs:  200,
+
 		VideoCRF: 45,
 		FPS:      30.0,
 	}

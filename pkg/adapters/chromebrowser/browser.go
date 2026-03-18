@@ -211,7 +211,8 @@ func (b *Browser) SetCPUThrottling(rate float64) error {
 
 // StartScreencast begins capturing screenshots at regular intervals.
 // maxWidth/maxHeight constrain the output image dimensions.
-func (b *Browser) StartScreencast(quality, maxWidth, maxHeight int) (<-chan ports.ScreenFrame, error) {
+// postLoadDelayMs is the delay after the page load event before stopping the screencast.
+func (b *Browser) StartScreencast(quality, maxWidth, maxHeight, postLoadDelayMs int) (<-chan ports.ScreenFrame, error) {
 	b.screencastMu.Lock()
 	defer b.screencastMu.Unlock()
 
@@ -263,9 +264,9 @@ func (b *Browser) StartScreencast(quality, maxWidth, maxHeight int) (<-chan port
 			b.addBytes(int64(e.EncodedDataLength))
 
 		case *page.EventLoadEventFired:
-			// Page fully loaded, stop screencast after a short delay
+			// Page fully loaded, stop screencast after the configured delay
 			go func() {
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(time.Duration(postLoadDelayMs) * time.Millisecond)
 				b.StopScreencast()
 			}()
 		}

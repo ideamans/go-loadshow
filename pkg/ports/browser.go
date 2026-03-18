@@ -27,8 +27,9 @@ type Browser interface {
 
 	// StartScreencast begins capturing screenshots at regular intervals.
 	// maxWidth/maxHeight constrain the output image dimensions.
+	// postLoadDelayMs is the delay after the page load event before stopping the screencast.
 	// Returns a channel that receives screen frames.
-	StartScreencast(quality, maxWidth, maxHeight int) (<-chan ScreenFrame, error)
+	StartScreencast(quality, maxWidth, maxHeight, postLoadDelayMs int) (<-chan ScreenFrame, error)
 
 	// StopScreencast stops the screencast capture.
 	StopScreencast() error

@@ -103,6 +103,7 @@ type RecordInput struct {
 	Headers           map[string]string
 	IgnoreHTTPSErrors bool   // Ignore HTTPS certificate errors
 	ProxyServer       string // HTTP proxy server (e.g., "http://proxy:8080")
+	OutroMs           int    // Duration to continue recording after page load event
 }
 
 // DefaultRecordInput returns RecordInput with default values.
@@ -236,7 +237,6 @@ type ComposedFrame struct {
 // EncodeInput contains parameters for video encoding.
 type EncodeInput struct {
 	Frames   []ComposedFrame
-	OutroMs  int     // Duration to hold the last frame
 	VideoCRF int     // CRF: 0-63 (lower is higher quality)
 	Bitrate  int     // Target bitrate in kbps
 	FPS      float64 // Frames per second
@@ -245,7 +245,6 @@ type EncodeInput struct {
 // DefaultEncodeInput returns EncodeInput with default values.
 func DefaultEncodeInput() EncodeInput {
 	return EncodeInput{
-		OutroMs:  1000,
 		VideoCRF: 25,
 		Bitrate:  1000,
 		FPS:      30.0,

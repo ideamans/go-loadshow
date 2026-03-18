@@ -66,7 +66,7 @@ type Config struct {
 	// Encoding
 	VideoCRF          int // MP4 CRF value (0-63, lower is better)
 	ScreencastQuality int // JPEG quality for screencast (0-100)
-	OutroMs           int // Duration to hold final frame in milliseconds
+	OutroMs           int // Duration to continue recording after page load event in milliseconds
 
 	// Banner
 	Credit string // Text shown in banner (replaces "loadshow")
@@ -290,7 +290,7 @@ func (b *ConfigBuilder) WithQualityPreset(preset QualityPreset) *ConfigBuilder {
 	return b
 }
 
-// WithOutroMs sets the duration to hold the final frame in milliseconds.
+// WithOutroMs sets the duration to continue recording after page load event in milliseconds.
 func (b *ConfigBuilder) WithOutroMs(ms int) *ConfigBuilder {
 	b.config.OutroMs = ms
 	return b

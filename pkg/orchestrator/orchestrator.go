@@ -254,6 +254,7 @@ func (o *Orchestrator) buildRecordInput(config Config, layout pipeline.LayoutRes
 		Headers:           config.Headers,
 		IgnoreHTTPSErrors: config.IgnoreHTTPSErrors,
 		ProxyServer:       config.ProxyServer,
+		OutroMs:           config.OutroMs,
 	}
 }
 
@@ -301,7 +302,6 @@ func (o *Orchestrator) buildCompositeInput(
 func (o *Orchestrator) buildEncodeInput(config Config, composite pipeline.CompositeResult) pipeline.EncodeInput {
 	return pipeline.EncodeInput{
 		Frames:   composite.Frames,
-		OutroMs:  config.OutroMs,
 		VideoCRF: config.VideoCRF,
 		Bitrate:  config.Bitrate,
 		FPS:      config.FPS,

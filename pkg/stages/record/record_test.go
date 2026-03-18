@@ -14,7 +14,7 @@ import (
 func TestStage_Execute(t *testing.T) {
 	// Create mock browser that sends frames
 	mockBrowser := &mocks.Browser{
-		StartScreencastFunc: func(quality, maxWidth, maxHeight int) (<-chan ports.ScreenFrame, error) {
+		StartScreencastFunc: func(quality, maxWidth, maxHeight, postLoadDelayMs int) (<-chan ports.ScreenFrame, error) {
 			ch := make(chan ports.ScreenFrame)
 			go func() {
 				defer close(ch)
@@ -80,7 +80,7 @@ func TestStage_Execute(t *testing.T) {
 
 func TestStage_Execute_WithDebugSink(t *testing.T) {
 	mockBrowser := &mocks.Browser{
-		StartScreencastFunc: func(quality, maxWidth, maxHeight int) (<-chan ports.ScreenFrame, error) {
+		StartScreencastFunc: func(quality, maxWidth, maxHeight, postLoadDelayMs int) (<-chan ports.ScreenFrame, error) {
 			ch := make(chan ports.ScreenFrame)
 			go func() {
 				defer close(ch)
@@ -120,7 +120,7 @@ func TestStage_Execute_WithDebugSink(t *testing.T) {
 func TestStage_Execute_Timeout(t *testing.T) {
 	// Create a browser that sends frames slowly
 	mockBrowser := &mocks.Browser{
-		StartScreencastFunc: func(quality, maxWidth, maxHeight int) (<-chan ports.ScreenFrame, error) {
+		StartScreencastFunc: func(quality, maxWidth, maxHeight, postLoadDelayMs int) (<-chan ports.ScreenFrame, error) {
 			ch := make(chan ports.ScreenFrame)
 			go func() {
 				defer close(ch)
@@ -164,7 +164,7 @@ func TestStage_Execute_Timeout(t *testing.T) {
 func TestStage_Execute_TimeoutFieldsSet(t *testing.T) {
 	// Create a browser that sends frames slowly to trigger timeout
 	mockBrowser := &mocks.Browser{
-		StartScreencastFunc: func(quality, maxWidth, maxHeight int) (<-chan ports.ScreenFrame, error) {
+		StartScreencastFunc: func(quality, maxWidth, maxHeight, postLoadDelayMs int) (<-chan ports.ScreenFrame, error) {
 			ch := make(chan ports.ScreenFrame)
 			go func() {
 				defer close(ch)
@@ -212,7 +212,7 @@ func TestStage_Execute_TimeoutFieldsSet(t *testing.T) {
 func TestStage_Execute_NoTimeout(t *testing.T) {
 	// Create a browser that completes quickly
 	mockBrowser := &mocks.Browser{
-		StartScreencastFunc: func(quality, maxWidth, maxHeight int) (<-chan ports.ScreenFrame, error) {
+		StartScreencastFunc: func(quality, maxWidth, maxHeight, postLoadDelayMs int) (<-chan ports.ScreenFrame, error) {
 			ch := make(chan ports.ScreenFrame)
 			go func() {
 				defer close(ch)
@@ -269,7 +269,7 @@ func TestStage_Execute_NoTimeout(t *testing.T) {
 
 func TestStage_Execute_PerformanceTimingError(t *testing.T) {
 	mockBrowser := &mocks.Browser{
-		StartScreencastFunc: func(quality, maxWidth, maxHeight int) (<-chan ports.ScreenFrame, error) {
+		StartScreencastFunc: func(quality, maxWidth, maxHeight, postLoadDelayMs int) (<-chan ports.ScreenFrame, error) {
 			ch := make(chan ports.ScreenFrame)
 			go func() {
 				defer close(ch)

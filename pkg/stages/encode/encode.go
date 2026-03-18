@@ -62,15 +62,6 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.EncodeInput) (pipeli
 		}
 	}
 
-	// Add outro (hold last frame)
-	if input.OutroMs > 0 && len(input.Frames) > 0 {
-		lastFrame := input.Frames[len(input.Frames)-1]
-		outroTimestamp := lastFrame.TimestampMs + input.OutroMs
-		if err := s.encoder.EncodeFrame(lastFrame.Image, outroTimestamp); err != nil {
-			return result, fmt.Errorf("encode outro frame: %w", err)
-		}
-	}
-
 	// Finalize encoding
 	data, err := s.encoder.End()
 	if err != nil {
@@ -80,7 +71,7 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.EncodeInput) (pipeli
 	// Calculate duration
 	durationMs := 0
 	if len(input.Frames) > 0 {
-		durationMs = input.Frames[len(input.Frames)-1].TimestampMs + input.OutroMs
+		durationMs = input.Frames[len(input.Frames)-1].TimestampMs
 	}
 
 	result.VideoData = data

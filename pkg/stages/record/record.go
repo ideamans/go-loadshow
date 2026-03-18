@@ -111,7 +111,11 @@ func (s *Stage) Execute(ctx context.Context, input pipeline.RecordInput) (pipeli
 		screencastQuality = 80
 	}
 	s.logger.Debug("Starting screencast with JPEG quality %d", screencastQuality)
-	frameChan, err := s.browser.StartScreencast(screencastQuality, windowWidth, windowHeight)
+	postLoadDelayMs := input.OutroMs
+	if postLoadDelayMs <= 0 {
+		postLoadDelayMs = 500 // default fallback
+	}
+	frameChan, err := s.browser.StartScreencast(screencastQuality, windowWidth, windowHeight, postLoadDelayMs)
 	if err != nil {
 		return result, fmt.Errorf("start screencast: %w", err)
 	}

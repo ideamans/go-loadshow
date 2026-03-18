@@ -24,7 +24,7 @@ func TestStage_Execute(t *testing.T) {
 
 	input := pipeline.EncodeInput{
 		Frames:   frames,
-		OutroMs:  1000,
+
 		VideoCRF: 30,
 		Bitrate:  1000,
 		FPS:      30.0,
@@ -43,15 +43,15 @@ func TestStage_Execute(t *testing.T) {
 		t.Error("expected End to be called")
 	}
 
-	// Check frame count (3 frames + 1 outro frame)
-	expectedFrameCalls := 4
+	// Check frame count (3 frames, no outro frame)
+	expectedFrameCalls := 3
 	if len(mockEncoder.EncodeFrameCalls) != expectedFrameCalls {
 		t.Errorf("expected %d EncodeFrame calls, got %d",
 			expectedFrameCalls, len(mockEncoder.EncodeFrameCalls))
 	}
 
-	// Check duration includes outro
-	expectedDuration := 200 + 1000 // last frame + outro
+	// Check duration is last frame timestamp
+	expectedDuration := 200
 	if result.DurationMs != expectedDuration {
 		t.Errorf("expected duration %d, got %d", expectedDuration, result.DurationMs)
 	}
@@ -74,7 +74,7 @@ func TestStage_Execute_NoOutro(t *testing.T) {
 
 	input := pipeline.EncodeInput{
 		Frames:   frames,
-		OutroMs:  0, // No outro
+
 		VideoCRF: 30,
 		Bitrate:  1000,
 		FPS:      30.0,
@@ -142,7 +142,7 @@ func TestStage_Execute_FrameTimestamps(t *testing.T) {
 
 	input := pipeline.EncodeInput{
 		Frames:  frames,
-		OutroMs: 500,
+
 	}
 
 	_, err := stage.Execute(context.Background(), input)
@@ -150,8 +150,8 @@ func TestStage_Execute_FrameTimestamps(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Check timestamps
-	expectedTimestamps := []int{0, 500, 1000, 1500} // Including outro
+	// Check timestamps (no outro frame added)
+	expectedTimestamps := []int{0, 500, 1000}
 	for i, call := range mockEncoder.EncodeFrameCalls {
 		if call.TimestampMs != expectedTimestamps[i] {
 			t.Errorf("call %d: expected timestamp %d, got %d",

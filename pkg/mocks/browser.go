@@ -14,7 +14,7 @@ type Browser struct {
 	SetViewportFunc          func(viewportWidth, viewportHeight, screenWidth, screenHeight int, deviceScaleFactor float64) error
 	SetNetworkConditionsFunc func(conditions ports.NetworkConditions) error
 	SetCPUThrottlingFunc     func(rate float64) error
-	StartScreencastFunc      func(quality, maxWidth, maxHeight int) (<-chan ports.ScreenFrame, error)
+	StartScreencastFunc      func(quality, maxWidth, maxHeight, postLoadDelayMs int) (<-chan ports.ScreenFrame, error)
 	StopScreencastFunc       func() error
 	GetPageInfoFunc          func() (*ports.PageInfo, error)
 	GetPerformanceTimingFunc func() (*ports.PerformanceTiming, error)
@@ -56,9 +56,9 @@ func (m *Browser) SetCPUThrottling(rate float64) error {
 	return nil
 }
 
-func (m *Browser) StartScreencast(quality, maxWidth, maxHeight int) (<-chan ports.ScreenFrame, error) {
+func (m *Browser) StartScreencast(quality, maxWidth, maxHeight, postLoadDelayMs int) (<-chan ports.ScreenFrame, error) {
 	if m.StartScreencastFunc != nil {
-		return m.StartScreencastFunc(quality, maxWidth, maxHeight)
+		return m.StartScreencastFunc(quality, maxWidth, maxHeight, postLoadDelayMs)
 	}
 	ch := make(chan ports.ScreenFrame)
 	close(ch)
