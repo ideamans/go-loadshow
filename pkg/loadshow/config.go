@@ -128,7 +128,7 @@ func desktopDefaults() Config {
 		// Encoding (medium quality preset)
 		VideoCRF:          25,
 		ScreencastQuality: 80,
-		OutroMs:           2000,
+		OutroMs:           3000,
 
 		// Banner
 		Credit: "loadshow",
@@ -168,7 +168,7 @@ func mobileDefaults() Config {
 		// Encoding (medium quality preset)
 		VideoCRF:          25,
 		ScreencastQuality: 80,
-		OutroMs:           2000,
+		OutroMs:           3000,
 
 		// Banner
 		Credit: "loadshow",

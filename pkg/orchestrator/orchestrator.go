@@ -89,7 +89,7 @@ func DefaultConfig() Config {
 
 		VideoCRF: 25,
 		Bitrate:  2000,
-		OutroMs:  2000,
+		OutroMs:  3000,
 		FPS:      30.0,
 	}
 }
@@ -289,13 +289,15 @@ func (o *Orchestrator) buildCompositeInput(
 	}
 
 	return pipeline.CompositeInput{
-		RawFrames:    record.Frames,
-		Layout:       layout,
-		Banner:       banner,
-		Theme:        theme,
-		ShowProgress: config.ShowProgress,
-		TotalTimeMs:  record.Timing.TotalDurationMs,
-		TotalBytes:   getTotalBytes(record.Frames),
+		RawFrames:          record.Frames,
+		Layout:             layout,
+		Banner:             banner,
+		Theme:              theme,
+		ShowProgress:       config.ShowProgress,
+		TotalTimeMs:        record.Timing.TotalDurationMs,
+		TotalBytes:         getTotalBytes(record.Frames),
+		DOMContentLoadedMs: record.Timing.DOMContentLoadedMs,
+		LoadCompleteMs:     record.Timing.LoadCompleteMs,
 	}
 }
 

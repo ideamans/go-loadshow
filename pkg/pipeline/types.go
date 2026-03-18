@@ -199,6 +199,9 @@ type CompositeInput struct {
 	ShowProgress bool
 	TotalTimeMs  int   // Total recording time (kept for compatibility)
 	TotalBytes   int64 // Total bytes transferred for traffic-based progress
+	// Timing badges
+	DOMContentLoadedMs int // DOMContentLoaded timing in ms (0 = not available)
+	LoadCompleteMs     int // OnLoad timing in ms (0 = not available)
 }
 
 // CompositeTheme defines composition styling.
@@ -207,6 +210,8 @@ type CompositeTheme struct {
 	BorderColor      color.Color
 	ProgressBarColor color.Color
 	ProgressBgColor  color.Color
+	DCLBadgeColor    color.Color // Badge color for DOMContentLoaded
+	LoadBadgeColor   color.Color // Badge color for OnLoad
 }
 
 // DefaultCompositeTheme returns a default composite theme.
@@ -216,6 +221,8 @@ func DefaultCompositeTheme() CompositeTheme {
 		BorderColor:      color.RGBA{R: 180, G: 180, B: 180, A: 255}, // #b4b4b4 少し濃いグレー
 		ProgressBarColor: color.RGBA{R: 76, G: 175, B: 80, A: 255},   // #4caf50
 		ProgressBgColor:  color.RGBA{R: 80, G: 80, B: 80, A: 255},    // #505050 濃いめのグレー
+		DCLBadgeColor:    color.RGBA{R: 66, G: 133, B: 244, A: 255},  // #4285F4 青（DevTools準拠）
+		LoadBadgeColor:   color.RGBA{R: 211, G: 75, B: 62, A: 255},   // #D34B3E 赤（DevTools準拠）
 	}
 }
 

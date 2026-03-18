@@ -116,7 +116,7 @@ func Defaults() Config {
 		// Encoding
 		VideoCRF: 25,
 		FPS:      30.0,
-		OutroMs:  1000,
+		OutroMs:  3000,
 
 		// Debug
 		DebugDir: "./debug",

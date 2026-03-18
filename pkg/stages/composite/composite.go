@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"image/color"
 	"runtime"
 	"sort"
 	"sync"
@@ -249,9 +250,12 @@ func (s *Stage) composeFrame(input pipeline.CompositeInput, frameIndex int) (pip
 		// Measure text height and calculate vertical center offset
 		_, textHeight := canvas.MeasureText(percentText, textStyle)
 		offset := (float64(progressHeight) - textHeight) / 2.0
-		textY := bannerHeight + int(offset+textHeight/2)
+		textY := bannerHeight + int(offset+textHeight/2) - 2
 		canvas.DrawText(percentText, canvasWidth-4, textY, textStyle)
 	}
+
+	// Draw timing badges at top-right corner
+	s.drawTimingBadges(canvas, input, rawFrame, canvasWidth, bannerHeight, progressHeight)
 
 	// Draw column borders (at column.y + canvasOffset)
 	for _, col := range layout.Columns {
@@ -288,6 +292,59 @@ func (s *Stage) composeFrame(input pipeline.CompositeInput, frameIndex int) (pip
 		TimestampMs: rawFrame.TimestampMs,
 		Image:       canvas.ToImage(),
 	}, nil
+}
+
+// drawTimingBadges draws DCL and OnLoad badges on the progress bar area.
+// DCL badge appears at the rightmost position, OnLoad badge appears to its left.
+// Badges appear when the frame timestamp reaches the respective timing and persist after that.
+func (s *Stage) drawTimingBadges(
+	canvas ports.Canvas,
+	input pipeline.CompositeInput,
+	rawFrame pipeline.RawFrame,
+	canvasWidth, bannerHeight, progressHeight int,
+) {
+	badgeHeight := progressHeight
+	if badgeHeight < 12 {
+		badgeHeight = 12
+	}
+	fontSize := float64(badgeHeight) * 0.7
+	hPadding := int(fontSize * 0.4)
+	badgeY := bannerHeight
+
+	textStyle := ports.TextStyle{
+		FontSize: fontSize,
+		Color:    image.White,
+		Align:    ports.AlignLeft,
+	}
+
+	// Collect badges to draw (right to left: DCL first, then OnLoad to its left)
+	type badge struct {
+		label string
+		bg    color.Color
+	}
+	var badges []badge
+
+	if input.DOMContentLoadedMs > 0 && rawFrame.TimestampMs >= input.DOMContentLoadedMs {
+		badges = append(badges, badge{"DCL", input.Theme.DCLBadgeColor})
+	}
+	if input.LoadCompleteMs > 0 && rawFrame.TimestampMs >= input.LoadCompleteMs {
+		badges = append(badges, badge{"Load", input.Theme.LoadBadgeColor})
+	}
+
+	// Draw badges from left to right, flush to top-left of progress bar area
+	x := 0
+	for _, b := range badges {
+		tw, _ := canvas.MeasureText(b.label, textStyle)
+		badgeWidth := int(tw) + hPadding*2
+
+		canvas.DrawRect(x, badgeY, badgeWidth, badgeHeight, b.bg)
+
+		// Center text vertically in badge (nudge up to compensate for font baseline)
+		textY := badgeY + (badgeHeight-3)/2
+		canvas.DrawText(b.label, x+hPadding, textY, textStyle)
+
+		x += badgeWidth
+	}
 }
 
 // extractSubImage extracts a portion of an image.
