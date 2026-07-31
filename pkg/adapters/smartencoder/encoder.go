@@ -5,9 +5,9 @@ package smartencoder
 import (
 	"errors"
 
-	"github.com/user/loadshow/pkg/adapters/av1encoder"
-	"github.com/user/loadshow/pkg/adapters/h264encoder"
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/adapters/av1encoder"
+	"github.com/ideamans/go-loadshow/pkg/adapters/h264encoder"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // Codec represents the video codec type.

@@ -8,7 +8,7 @@ import (
 	"image/color"
 	"image/draw"
 
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // Input contains the input parameters for juxtapose operation.

@@ -4,7 +4,7 @@ package mocks
 import (
 	"context"
 
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // Browser is a mock implementation of ports.Browser.

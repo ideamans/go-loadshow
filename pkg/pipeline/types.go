@@ -4,7 +4,7 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // =============================================================================

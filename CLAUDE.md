@@ -175,3 +175,48 @@ loadshow version
 - Chrome/Chromium browser (runtime)
 - libaom (for AV1 encoding)
 - FFmpeg (Linux only, for H.264)
+
+## Updating the AI-facing layer
+
+**Added a command or flag, changed a default, changed the throttling model —
+update all three before finishing.**
+
+| Update | Where |
+| --- | --- |
+| ① Documentation | `README.md` / `README.ja.md` (both) |
+| ② Help text | the urfave/cli definitions in `cmd/loadshow/main.go` |
+| ③ **LLM knowledge** | `internal/llmdocs/00-guide.md` |
+| | `internal/llmdocs/90-commands.md` — **generated, never hand-edit** → `go generate ./...` |
+| | `plugins/go-loadshow/skills/*/SKILL.md` |
+| | `context7.json` `rules` |
+
+③ is the one that rots. Stale docs and stale `--help` get noticed by a human
+reading them; **stale LLM knowledge is noticed by nobody** — the agent just
+quietly gets it wrong.
+
+### Two things specific to this repository
+
+**The catalog generator is hand-written** (`cmd/loadshow/gen_llmdocs.go`).
+`go-llm-cli-kit`'s `catalog` package only understands cobra; this is the
+urfave equivalent. Changing the CLI framework means changing it too.
+
+**It strips locale variables before walking the tree.** Descriptions go
+through go-l10n, which selects Japanese whenever any of `LANG` / `LANGUAGE` /
+`LC_ALL` / `LC_MESSAGES` is set — `LANG=C` included. Only an environment with
+none of them set gives the English source strings. Remove the stripping and
+the committed catalog flips language depending on who ran `go generate`.
+
+### Verify
+
+```bash
+go generate ./...
+git diff --exit-code -- internal/llmdocs
+go test ./cmd/loadshow
+go run ./cmd/loadshow llm | head
+```
+
+`PluginVersion` (`cmd/loadshow/main.go`) and
+`plugins/go-loadshow/.claude-plugin/plugin.json` must always agree, and the
+release tag must match both.
+
+Standard: <https://github.com/ideamans/go-llm-cli-kit/blob/main/LLM.md>

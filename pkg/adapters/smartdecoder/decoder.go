@@ -6,10 +6,10 @@ import (
 	"errors"
 	"io"
 
-	"github.com/user/loadshow/pkg/adapters/av1decoder"
-	"github.com/user/loadshow/pkg/adapters/codecdetect"
-	"github.com/user/loadshow/pkg/adapters/h264decoder"
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/adapters/av1decoder"
+	"github.com/ideamans/go-loadshow/pkg/adapters/codecdetect"
+	"github.com/ideamans/go-loadshow/pkg/adapters/h264decoder"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // Codec represents the video codec type (re-exported from codecdetect).

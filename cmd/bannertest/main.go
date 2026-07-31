@@ -6,8 +6,8 @@ import (
 	"image/png"
 	"os"
 
-	"github.com/user/loadshow/pkg/adapters/capturehtml"
-	"github.com/user/loadshow/pkg/stages/banner"
+	"github.com/ideamans/go-loadshow/pkg/adapters/capturehtml"
+	"github.com/ideamans/go-loadshow/pkg/stages/banner"
 )
 
 func main() {

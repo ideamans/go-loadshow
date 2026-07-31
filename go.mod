@@ -1,4 +1,4 @@
-module github.com/user/loadshow
+module github.com/ideamans/go-loadshow
 
 go 1.24.0
 
@@ -28,6 +28,7 @@ require (
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.4.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
+	github.com/ideamans/go-llm-cli-kit v0.1.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect

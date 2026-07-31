@@ -4,7 +4,7 @@ package nullsink
 import (
 	"image"
 
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // Sink is a no-op implementation of ports.DebugSink.

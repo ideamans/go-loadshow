@@ -10,8 +10,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/user/loadshow/pkg/pipeline"
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/pipeline"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // Stage composes raw frames into final output frames.

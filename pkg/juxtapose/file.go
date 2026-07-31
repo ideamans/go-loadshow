@@ -3,10 +3,10 @@ package juxtapose
 import (
 	"context"
 
-	"github.com/user/loadshow/pkg/adapters/av1decoder"
-	"github.com/user/loadshow/pkg/adapters/av1encoder"
-	"github.com/user/loadshow/pkg/adapters/logger"
-	"github.com/user/loadshow/pkg/adapters/osfilesystem"
+	"github.com/ideamans/go-loadshow/pkg/adapters/av1decoder"
+	"github.com/ideamans/go-loadshow/pkg/adapters/av1encoder"
+	"github.com/ideamans/go-loadshow/pkg/adapters/logger"
+	"github.com/ideamans/go-loadshow/pkg/adapters/osfilesystem"
 )
 
 // Combine combines two videos side by side.

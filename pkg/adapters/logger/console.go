@@ -8,7 +8,7 @@ import (
 
 	"github.com/ideamans/go-l10n"
 	"github.com/mattn/go-isatty"
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // ANSI color codes

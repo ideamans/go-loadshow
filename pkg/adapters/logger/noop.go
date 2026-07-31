@@ -1,6 +1,6 @@
 package logger
 
-import "github.com/user/loadshow/pkg/ports"
+import "github.com/ideamans/go-loadshow/pkg/ports"
 
 // NoopLogger is a logger that discards all messages.
 // Used for quiet mode when no output is desired.

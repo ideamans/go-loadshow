@@ -434,7 +434,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // mediaFoundationEncoder implements H.264 encoding using Media Foundation on Windows.

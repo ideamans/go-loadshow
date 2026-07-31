@@ -1,0 +1,19 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "loadshow",
+  "description": "CLI that records a web page loading as an MP4 video laid out as scrolling columns, and places two recordings side by side for before/after comparison. Supports network and CPU throttling so the result resembles a real visit.",
+  "folders": ["internal/llmdocs"],
+  "excludeFolders": ["node_modules", "dist", "vendor", "testdata"],
+  "rules": [
+    "The repository is go-loadshow; the command is loadshow.",
+    "A recording is a demonstration, not a measurement. Never report a duration from a video as the page's load time, and never compare recordings taken with different settings.",
+    "Without throttling the video is misleading. Set --download-mbps and --cpu-throttling explicitly; --cpu-throttling 4 is roughly a low-end phone.",
+    "For a before/after, both recordings must use the same --preset, --viewport-width and throttling. juxtapose combines any two videos and cannot tell you they were incomparable.",
+    "--output / -o is required for both record and juxtapose, and the file is overwritten.",
+    "Chrome or Chromium must be installed. On Linux, H.264 encoding also needs ffmpeg; --codec av1 avoids that dependency.",
+    "Recording takes real time, bounded by --timeout-sec (default 30). A long encode is not a hang.",
+    "--output-summary writes a Markdown summary of the run; quote that rather than describing the video from memory.",
+    "This tool produces no metrics — no Lighthouse score, no Core Web Vitals, no waterfall. Use crux or Lighthouse for numbers.",
+    "Release archives keep the v prefix and use lowercase os/arch, e.g. loadshow_v1.6.0_darwin_arm64.tar.gz. There is no darwin_amd64 build; building from source needs cgo."
+  ]
+}

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/user/loadshow/pkg/mocks"
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/mocks"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // testBaseDir is a platform-independent base directory for tests

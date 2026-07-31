@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/user/loadshow/pkg/pipeline"
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/pipeline"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // Stage records a web page loading process using a browser.

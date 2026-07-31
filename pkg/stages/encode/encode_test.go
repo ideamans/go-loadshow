@@ -5,9 +5,9 @@ import (
 	"image"
 	"testing"
 
-	"github.com/user/loadshow/pkg/adapters/logger"
-	"github.com/user/loadshow/pkg/mocks"
-	"github.com/user/loadshow/pkg/pipeline"
+	"github.com/ideamans/go-loadshow/pkg/adapters/logger"
+	"github.com/ideamans/go-loadshow/pkg/mocks"
+	"github.com/ideamans/go-loadshow/pkg/pipeline"
 )
 
 func TestStage_Execute(t *testing.T) {

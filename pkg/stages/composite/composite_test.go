@@ -5,11 +5,11 @@ import (
 	"image"
 	"testing"
 
-	"github.com/user/loadshow/pkg/adapters/logger"
-	"github.com/user/loadshow/pkg/mocks"
-	"github.com/user/loadshow/pkg/pipeline"
-	"github.com/user/loadshow/pkg/ports"
-	"github.com/user/loadshow/pkg/stages/layout"
+	"github.com/ideamans/go-loadshow/pkg/adapters/logger"
+	"github.com/ideamans/go-loadshow/pkg/mocks"
+	"github.com/ideamans/go-loadshow/pkg/pipeline"
+	"github.com/ideamans/go-loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/stages/layout"
 )
 
 func TestStage_Execute(t *testing.T) {

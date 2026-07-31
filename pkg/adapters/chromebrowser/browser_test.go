@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // TestBrowser_Launch_AutoInstallChromium exercises the last-resort path:

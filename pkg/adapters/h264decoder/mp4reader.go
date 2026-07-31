@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/Eyevinn/mp4ff/mp4"
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // MP4Reader reads and decodes H.264 frames from an MP4 file.

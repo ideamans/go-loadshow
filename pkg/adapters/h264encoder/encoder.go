@@ -8,7 +8,7 @@ import (
 	"image"
 	"sync"
 
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // customFFmpegPath is set via SetFFmpegPath for Linux.

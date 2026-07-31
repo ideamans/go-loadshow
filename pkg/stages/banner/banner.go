@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/user/loadshow/pkg/pipeline"
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/pipeline"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // Stage generates a banner image displaying page metadata.
