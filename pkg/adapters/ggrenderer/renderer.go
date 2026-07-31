@@ -12,7 +12,7 @@ import (
 	"github.com/fogleman/gg"
 	"golang.org/x/image/draw"
 
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // Renderer implements ports.Renderer using the gg library.

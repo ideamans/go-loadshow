@@ -5,7 +5,7 @@ package h264encoder
 import (
 	"image"
 
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // unsupportedEncoder is a placeholder for unsupported platforms.

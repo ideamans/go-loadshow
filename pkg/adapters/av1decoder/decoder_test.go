@@ -5,8 +5,8 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/user/loadshow/pkg/adapters/av1encoder"
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/adapters/av1encoder"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 func TestNew(t *testing.T) {

@@ -4,7 +4,7 @@ package layout
 import (
 	"context"
 
-	"github.com/user/loadshow/pkg/pipeline"
+	"github.com/ideamans/go-loadshow/pkg/pipeline"
 )
 
 // Stage calculates the layout for the recording composition.

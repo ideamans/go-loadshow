@@ -15,7 +15,7 @@ import (
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // Browser implements ports.Browser using chromedp.

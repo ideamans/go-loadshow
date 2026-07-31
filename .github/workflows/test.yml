@@ -7,6 +7,47 @@ on:
     branches: [main, develop]
 
 jobs:
+  llm-reference:
+    name: LLM reference is current
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/e2e'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # go generate links the whole binary, including the cgo AV1 codecs, so
+      # the native libraries have to be present first. This is why the check
+      # cannot live in the cross-platform unit-test job ahead of `make deps`.
+      - name: Install native dependencies
+        run: make deps
+
+      # internal/llmdocs/90-commands.md is committed because go:embed needs a
+      # real file at build time, so the guard against drift is regenerating it
+      # here. One platform is enough — the catalog does not vary by OS.
+      - name: Regenerate the embedded LLM reference
+        run: go generate ./...
+
+      - name: Fail if the committed reference is stale
+        run: |
+          if ! git diff --exit-code -- internal/llmdocs; then
+            echo "::error::internal/llmdocs is out of date. Run 'go generate ./...' and commit the result."
+            exit 1
+          fi
+
+      - name: Validate the distributed plugin
+        run: go test ./cmd/loadshow
+
+      - name: Verify the llm subcommand renders
+        run: |
+          go run ./cmd/loadshow llm | head -5
+          go run ./cmd/loadshow llm --format json | head -5
+
   unit-test:
     name: Unit Tests (${{ matrix.os }}-${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}

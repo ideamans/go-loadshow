@@ -8,8 +8,8 @@ import (
 	"image/color"
 
 	"github.com/ideamans/go-l10n"
-	"github.com/user/loadshow/pkg/pipeline"
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/pipeline"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // Config contains all configuration for the orchestrator.

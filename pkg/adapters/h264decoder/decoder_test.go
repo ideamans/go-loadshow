@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/user/loadshow/pkg/adapters/h264encoder"
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/adapters/h264encoder"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // createTestImage creates a simple test image with gradient

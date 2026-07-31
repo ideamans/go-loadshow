@@ -4,8 +4,8 @@ package loadshow
 import (
 	"image/color"
 
-	"github.com/user/loadshow/pkg/orchestrator"
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/orchestrator"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // QualityPreset represents a video quality preset name.

@@ -427,7 +427,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // videoToolboxEncoder implements H.264 encoding using VideoToolbox on macOS.

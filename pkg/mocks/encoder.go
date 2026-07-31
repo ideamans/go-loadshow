@@ -3,7 +3,7 @@ package mocks
 import (
 	"image"
 
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // VideoEncoder is a mock implementation of ports.VideoEncoder.

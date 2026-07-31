@@ -13,7 +13,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // IsFFmpegAvailable checks if ffmpeg is available on the system.

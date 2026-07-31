@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/user/loadshow/pkg/pipeline"
+	"github.com/ideamans/go-loadshow/pkg/pipeline"
 )
 
 // TestComputeLayout_MatchTypeScript tests that the Go implementation produces

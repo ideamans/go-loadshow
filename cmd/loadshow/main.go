@@ -15,29 +15,35 @@ import (
 	"github.com/ideamans/go-l10n"
 	"github.com/urfave/cli/v2"
 
-	"github.com/user/loadshow/pkg/adapters/capturehtml"
-	"github.com/user/loadshow/pkg/adapters/chromebrowser"
-	"github.com/user/loadshow/pkg/adapters/filesink"
-	"github.com/user/loadshow/pkg/adapters/ggrenderer"
-	"github.com/user/loadshow/pkg/adapters/logger"
-	"github.com/user/loadshow/pkg/adapters/nullsink"
-	"github.com/user/loadshow/pkg/adapters/osfilesystem"
-	"github.com/user/loadshow/pkg/adapters/smartdecoder"
-	"github.com/user/loadshow/pkg/adapters/smartencoder"
-	"github.com/user/loadshow/pkg/config"
-	"github.com/user/loadshow/pkg/juxtapose"
-	"github.com/user/loadshow/pkg/loadshow"
-	"github.com/user/loadshow/pkg/orchestrator"
-	"github.com/user/loadshow/pkg/ports"
-	"github.com/user/loadshow/pkg/stages/banner"
-	"github.com/user/loadshow/pkg/stages/composite"
-	"github.com/user/loadshow/pkg/stages/encode"
-	"github.com/user/loadshow/pkg/stages/layout"
-	"github.com/user/loadshow/pkg/stages/record"
-	"github.com/user/loadshow/pkg/summarizer"
+	"github.com/ideamans/go-loadshow/pkg/adapters/capturehtml"
+	"github.com/ideamans/go-loadshow/pkg/adapters/chromebrowser"
+	"github.com/ideamans/go-loadshow/pkg/adapters/filesink"
+	"github.com/ideamans/go-loadshow/pkg/adapters/ggrenderer"
+	"github.com/ideamans/go-loadshow/pkg/adapters/logger"
+	"github.com/ideamans/go-loadshow/pkg/adapters/nullsink"
+	"github.com/ideamans/go-loadshow/pkg/adapters/osfilesystem"
+	"github.com/ideamans/go-loadshow/pkg/adapters/smartdecoder"
+	"github.com/ideamans/go-loadshow/pkg/adapters/smartencoder"
+	"github.com/ideamans/go-loadshow/pkg/config"
+	"github.com/ideamans/go-loadshow/pkg/juxtapose"
+	"github.com/ideamans/go-loadshow/pkg/loadshow"
+	"github.com/ideamans/go-loadshow/pkg/orchestrator"
+	"github.com/ideamans/go-loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/stages/banner"
+	"github.com/ideamans/go-loadshow/pkg/stages/composite"
+	"github.com/ideamans/go-loadshow/pkg/stages/encode"
+	"github.com/ideamans/go-loadshow/pkg/stages/layout"
+	"github.com/ideamans/go-loadshow/pkg/stages/record"
+	"github.com/ideamans/go-loadshow/pkg/summarizer"
 )
 
-var version = "dev"
+// PluginVersion is the version the distributed Claude Code plugin claims.
+// The release workflow refuses a tag that disagrees with it, and
+// TestPluginSkills asserts plugin.json carries the same value. version below
+// is overwritten by -ldflags at build time and reads "dev" locally.
+const PluginVersion = "1.6.0"
+
+var version = PluginVersion
 
 // Flag category names (will be translated)
 // Order is controlled by customCommandHelpTemplate
@@ -133,16 +139,45 @@ func printOrderedCommandHelp(w io.Writer, cmd *cli.Command) {
 	}
 }
 
-func main() {
-	app := &cli.App{
+// newApp assembles the command tree without running it, so gen-llmdocs can
+// walk it to produce the command catalog chapter.
+func newApp() *cli.App {
+	return &cli.App{
 		Name:    "loadshow",
 		Usage:   l10n.T("Create page load videos for web performance visualization"),
 		Version: version,
 		Commands: []*cli.Command{
 			recordCommand(),
 			juxtaposeCommand(),
+			llmCommand(),
 		},
 	}
+}
+
+//go:generate go run . gen-llmdocs
+
+func main() {
+	// `go generate ./...` reaches this through the directive in main.go.
+	if len(os.Args) > 1 && os.Args[1] == "gen-llmdocs" {
+		pinLocale()
+		if err := generateCatalog(newApp()); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	// The historical --llm flag has to be handled before urfave parses,
+	// because it rejects an unknown flag on a leaf command.
+	if handled, err := handleLegacyLLMFlag(os.Args); handled {
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	app := newApp()
 
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)

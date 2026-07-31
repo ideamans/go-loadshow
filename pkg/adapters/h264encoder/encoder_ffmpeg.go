@@ -13,7 +13,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // ffmpegEncoder implements H.264 encoding using ffmpeg external process.

@@ -1,0 +1,13 @@
+{
+  "name": "go-loadshow",
+  "description": "Adds /loadshow-usage and /loadshow-install skills for recording web page loads as MP4 video and placing two recordings side by side, with network and CPU throttling so the result resembles a real visit.",
+  "version": "1.6.0",
+  "author": {
+    "name": "Ideamans Inc.",
+    "email": "support@ideamans.com"
+  },
+  "homepage": "https://github.com/ideamans/go-loadshow",
+  "repository": "https://github.com/ideamans/go-loadshow",
+  "license": "MIT",
+  "keywords": ["loadshow", "web-performance", "video", "page-load", "throttling", "visualization", "cli"]
+}

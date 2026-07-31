@@ -6,7 +6,7 @@ import (
 	"image"
 	"path/filepath"
 
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // Sink saves debug output to files.

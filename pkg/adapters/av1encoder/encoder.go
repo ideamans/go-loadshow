@@ -77,7 +77,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 )
 
 // Encoder implements ports.VideoEncoder using libaom for AV1 encoding.

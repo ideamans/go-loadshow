@@ -5,8 +5,8 @@ import (
 	"image/color"
 	"os"
 
-	"github.com/user/loadshow/pkg/orchestrator"
-	"github.com/user/loadshow/pkg/ports"
+	"github.com/ideamans/go-loadshow/pkg/orchestrator"
+	"github.com/ideamans/go-loadshow/pkg/ports"
 	"gopkg.in/yaml.v3"
 )
 
