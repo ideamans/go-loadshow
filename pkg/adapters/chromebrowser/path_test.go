@@ -2,6 +2,7 @@ package chromebrowser
 
 import (
 	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 )
@@ -119,5 +120,42 @@ func TestResolveExecutable_FullPath(t *testing.T) {
 	result = resolveExecutable("/definitely/not/a/real/path/chrome")
 	if result != "" {
 		t.Errorf("expected empty for non-existing path, got %s", result)
+	}
+}
+
+// TestResolveChromePath_AbsoluteFallback covers the case the Playwright
+// download used to be the only answer to: a browser that is installed, but
+// not reachable through PATH.
+//
+// This is what happens in a container entrypoint, a cron job, or any process
+// started with a trimmed environment — and it is worth resolving locally
+// rather than by downloading 150 MB.
+func TestResolveChromePath_AbsoluteFallback(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("absolute candidate list is Linux-specific")
+	}
+
+	// Find a browser the normal way first; if the machine has none, there is
+	// nothing for the absolute paths to discover either.
+	withPath := ResolveChromePath("")
+	if withPath == "" {
+		t.Skip("no browser installed on this machine")
+	}
+
+	originalPath := os.Getenv("PATH")
+	originalChrome := os.Getenv("CHROME_PATH")
+	t.Cleanup(func() {
+		os.Setenv("PATH", originalPath)
+		os.Setenv("CHROME_PATH", originalChrome)
+	})
+	os.Unsetenv("CHROME_PATH")
+	os.Setenv("PATH", "/nonexistent")
+
+	got, err := ResolveChromePathErr("")
+	if got == "" {
+		t.Fatalf("no browser found with PATH cleared, though %s exists: %v", withPath, err)
+	}
+	if !filepath.IsAbs(got) {
+		t.Errorf("expected an absolute path with PATH cleared, got %q", got)
 	}
 }

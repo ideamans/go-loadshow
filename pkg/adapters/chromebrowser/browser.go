@@ -4,6 +4,7 @@ package chromebrowser
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -68,9 +69,16 @@ func (b *Browser) Launch(ctx context.Context, opts ports.BrowserOptions) error {
 	chromedpOpts = append(chromedpOpts, chromedp.Flag("hide-scrollbars", true))
 
 	// Resolve Chrome path: CLI option → CHROME_PATH env → system defaults
-	chromePath := ResolveChromePath(opts.ChromePath)
+	chromePath, resolveErr := ResolveChromePathErr(opts.ChromePath)
 	if chromePath == "" {
-		return fmt.Errorf("chrome not found: please install Chrome/Chromium, set CHROME_PATH environment variable, or use --chrome-path option")
+		const advice = "chrome not found: please install Chrome/Chromium, set CHROME_PATH environment variable, or use --chrome-path option"
+		if resolveErr != nil {
+			// Say what actually went wrong. The automatic Playwright install
+			// failing is a different problem from having no browser, and it
+			// used to be reported as the same thing.
+			return fmt.Errorf("%s (automatic install did not help: %w)", advice, resolveErr)
+		}
+		return errors.New(advice)
 	}
 	chromedpOpts = append(chromedpOpts, chromedp.ExecPath(chromePath))
 
