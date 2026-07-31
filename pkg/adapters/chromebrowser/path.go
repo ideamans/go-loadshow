@@ -2,10 +2,13 @@
 package chromebrowser
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/playwright-community/playwright-go"
 )
@@ -16,14 +19,25 @@ import (
 // 3. Fall back to system defaults (chromium → chrome order per platform)
 // 4. If no system Chrome found, auto-install Chromium via Playwright
 func ResolveChromePath(explicitPath string) string {
+	path, _ := ResolveChromePathErr(explicitPath)
+	return path
+}
+
+// ResolveChromePathErr is ResolveChromePath, but explains why it came up empty.
+//
+// The distinction matters: "no browser on this machine" and "the automatic
+// install failed halfway" need different responses from the caller, and the
+// second used to be reported as the first — the underlying error was
+// discarded, so a CI failure said only "chrome not found".
+func ResolveChromePathErr(explicitPath string) (string, error) {
 	// 1. Explicit path from CLI
 	if explicitPath != "" {
-		return explicitPath
+		return explicitPath, nil
 	}
 
 	// 2. CHROME_PATH environment variable
 	if envPath := os.Getenv("CHROME_PATH"); envPath != "" {
-		return envPath
+		return envPath, nil
 	}
 
 	// 3. System defaults
@@ -33,7 +47,7 @@ func ResolveChromePath(explicitPath string) string {
 // findSystemChrome searches for Chrome/Chromium in system default locations.
 // It tries Chromium first, then Chrome, to prefer the more lightweight browser.
 // If no system Chrome is found, it falls back to auto-installing via Playwright.
-func findSystemChrome() string {
+func findSystemChrome() (string, error) {
 	var candidates []string
 
 	switch runtime.GOOS {
@@ -80,7 +94,7 @@ func findSystemChrome() string {
 
 	for _, candidate := range candidates {
 		if path := resolveExecutable(candidate); path != "" {
-			return path
+			return path, nil
 		}
 	}
 
@@ -110,13 +124,12 @@ func resolveExecutable(nameOrPath string) string {
 
 // installChromiumViaPlaywright installs Chromium using Playwright and returns the executable path.
 // This is used as a fallback when no system Chrome/Chromium is found.
-func installChromiumViaPlaywright() string {
+func installChromiumViaPlaywright() (string, error) {
 	// Install Chromium browser via Playwright
-	err := playwright.Install(&playwright.RunOptions{
+	if err := playwright.Install(&playwright.RunOptions{
 		Browsers: []string{"chromium"},
-	})
-	if err != nil {
-		return ""
+	}); err != nil {
+		return "", fmt.Errorf("playwright could not install chromium: %w", err)
 	}
 
 	// Get the Chromium executable path from Playwright's installation directory
@@ -124,12 +137,12 @@ func installChromiumViaPlaywright() string {
 }
 
 // getPlaywrightChromiumPath returns the path to Playwright-installed Chromium executable.
-func getPlaywrightChromiumPath() string {
+func getPlaywrightChromiumPath() (string, error) {
 	// Playwright installs browsers in a cache directory
 	// The path varies by OS but follows a pattern
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("no user cache directory: %w", err)
 	}
 
 	// Playwright stores browsers under ms-playwright directory
@@ -138,20 +151,31 @@ func getPlaywrightChromiumPath() string {
 	// Find the chromium directory (version may vary)
 	entries, err := os.ReadDir(playwrightDir)
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("playwright reported success but %s is unreadable: %w", playwrightDir, err)
 	}
 
-	// Look for chromium-* directory
+	// Look for the chromium-<revision> directory.
+	//
+	// Match on the "chromium-" prefix, not the first eight characters:
+	// Playwright also installs "chromium_headless_shell-<revision>" beside it,
+	// which starts with the same eight characters but contains
+	// chrome-linux/headless_shell rather than a full browser.
 	var chromiumDir string
+	var seen []string
 	for _, entry := range entries {
-		if entry.IsDir() && len(entry.Name()) > 8 && entry.Name()[:8] == "chromium" {
+		if !entry.IsDir() {
+			continue
+		}
+		seen = append(seen, entry.Name())
+		if strings.HasPrefix(entry.Name(), "chromium-") {
 			chromiumDir = filepath.Join(playwrightDir, entry.Name())
 			break
 		}
 	}
 
 	if chromiumDir == "" {
-		return ""
+		return "", fmt.Errorf("no chromium-* directory under %s (found: %s)",
+			playwrightDir, strings.Join(seen, ", "))
 	}
 
 	// Platform-specific executable path within the chromium directory
@@ -164,12 +188,11 @@ func getPlaywrightChromiumPath() string {
 	case "windows":
 		execPath = filepath.Join(chromiumDir, "chrome-win", "chrome.exe")
 	default:
-		return ""
+		return "", errors.New("unsupported platform for playwright chromium: " + runtime.GOOS)
 	}
 
-	if _, err := os.Stat(execPath); err == nil {
-		return execPath
+	if _, err := os.Stat(execPath); err != nil {
+		return "", fmt.Errorf("playwright chromium is installed but %s is missing: %w", execPath, err)
 	}
-
-	return ""
+	return execPath, nil
 }
