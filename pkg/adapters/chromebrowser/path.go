@@ -59,12 +59,25 @@ func findSystemChrome() (string, error) {
 			"/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
 		}
 	case "linux":
-		// Linux: Try chromium variants first, then chrome
+		// Linux: Try chromium variants first, then chrome.
+		//
+		// Bare names are looked up on PATH; the absolute paths after them
+		// cover the common case of a browser that is installed but not
+		// reachable through PATH — a trimmed PATH, a cron job, a container
+		// entrypoint. Without them the only remaining fallback is a network
+		// download, which is a poor answer when the browser is already on
+		// the disk.
 		candidates = []string{
 			"chromium",
 			"chromium-browser",
 			"google-chrome-stable",
 			"google-chrome",
+			"/usr/bin/chromium",
+			"/usr/bin/chromium-browser",
+			"/snap/bin/chromium",
+			"/usr/bin/google-chrome-stable",
+			"/usr/bin/google-chrome",
+			"/opt/google/chrome/chrome",
 		}
 	case "windows":
 		// Windows: Try common installation paths
