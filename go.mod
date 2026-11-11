@@ -1,8 +1,6 @@
 module github.com/ideamans/go-loadshow
 
-go 1.24.0
-
-toolchain go1.24.7
+go 1.25.0
 
 require (
 	github.com/Eyevinn/mp4ff v0.50.0
@@ -10,10 +8,11 @@ require (
 	github.com/chromedp/chromedp v0.14.2
 	github.com/fogleman/gg v1.3.0
 	github.com/ideamans/go-l10n v1.0.3
+	github.com/ideamans/go-llm-cli-kit v0.1.1
 	github.com/mattn/go-isatty v0.0.20
 	github.com/playwright-community/playwright-go v0.5200.1
 	github.com/urfave/cli/v2 v2.27.7
-	golang.org/x/image v0.34.0
+	golang.org/x/image v0.41.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -28,10 +27,9 @@ require (
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.4.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
-	github.com/ideamans/go-llm-cli-kit v0.1.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	golang.org/x/sys v0.34.0 // indirect
-	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 )
