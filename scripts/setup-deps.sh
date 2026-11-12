@@ -2,7 +2,7 @@
 set -e
 
 # Configuration
-LIBAOM_VERSION="3.8.0"
+LIBAOM_VERSION="3.15.3"
 LIBAOM_TARBALL="https://storage.googleapis.com/aom-releases/libaom-${LIBAOM_VERSION}.tar.gz"
 
 # Parse arguments

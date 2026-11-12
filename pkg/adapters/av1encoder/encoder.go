@@ -230,31 +230,7 @@ func (e *Encoder) EncodeFrame(img image.Image, timestampMs int) error {
 		return fmt.Errorf("encoding failed: %d", res)
 	}
 
-	// Get encoded data
-	var iter C.aom_codec_iter_t
-	for {
-		pkt := C.aom_codec_get_cx_data(e.codec, &iter)
-		if pkt == nil {
-			break
-		}
-
-		if C.is_frame_packet(pkt) != 0 {
-			buf := C.get_frame_buf(pkt)
-			sz := C.get_frame_sz(pkt)
-			frameData := C.GoBytes(buf, C.int(sz))
-			keyframe := C.is_keyframe(pkt) != 0
-			pktPts := int64(C.get_frame_pts(pkt))
-
-			// Convert PTS to microseconds
-			timestampUs := pktPts * 1000 / int64(e.fps)
-
-			e.frames = append(e.frames, encodedFrame{
-				data:        frameData,
-				timestampUs: timestampUs,
-				isKeyframe:  keyframe,
-			})
-		}
-	}
+	e.drainPackets()
 
 	e.frameCount++
 	return nil
@@ -269,34 +245,18 @@ func (e *Encoder) End() ([]byte, error) {
 		return nil, fmt.Errorf("encoder not initialized")
 	}
 
-	// Flush encoder
-	res := C.aom_codec_encode(e.codec, nil, 0, 1, 0)
-	if res != C.AOM_CODEC_OK {
-		return nil, fmt.Errorf("flush failed: %d", res)
-	}
-
-	// Get remaining packets
-	var iter C.aom_codec_iter_t
+	// Flush the encoder. libaom holds back up to g_lag_in_frames frames for
+	// look-ahead, and a single flush call does not return all of them: each
+	// call to aom_codec_encode(NULL) may emit only one more packet. Keep
+	// flushing until a call produces no packet (the same loop aomenc uses),
+	// otherwise the tail of the video is silently dropped.
 	for {
-		pkt := C.aom_codec_get_cx_data(e.codec, &iter)
-		if pkt == nil {
-			break
+		res := C.aom_codec_encode(e.codec, nil, 0, 1, 0)
+		if res != C.AOM_CODEC_OK {
+			return nil, fmt.Errorf("flush failed: %d", res)
 		}
-
-		if C.is_frame_packet(pkt) != 0 {
-			buf := C.get_frame_buf(pkt)
-			sz := C.get_frame_sz(pkt)
-			frameData := C.GoBytes(buf, C.int(sz))
-			keyframe := C.is_keyframe(pkt) != 0
-			pktPts := int64(C.get_frame_pts(pkt))
-
-			timestampUs := pktPts * 1000 / int64(e.fps)
-
-			e.frames = append(e.frames, encodedFrame{
-				data:        frameData,
-				timestampUs: timestampUs,
-				isKeyframe:  keyframe,
-			})
+		if !e.drainPackets() {
+			break
 		}
 	}
 
@@ -310,6 +270,39 @@ func (e *Encoder) End() ([]byte, error) {
 	e.cleanup()
 
 	return mp4Data, nil
+}
+
+// drainPackets collects every packet the encoder has ready and reports
+// whether at least one frame packet was produced.
+func (e *Encoder) drainPackets() bool {
+	got := false
+	var iter C.aom_codec_iter_t
+	for {
+		pkt := C.aom_codec_get_cx_data(e.codec, &iter)
+		if pkt == nil {
+			break
+		}
+		if C.is_frame_packet(pkt) == 0 {
+			continue
+		}
+		got = true
+
+		buf := C.get_frame_buf(pkt)
+		sz := C.get_frame_sz(pkt)
+		frameData := C.GoBytes(buf, C.int(sz))
+		keyframe := C.is_keyframe(pkt) != 0
+		pktPts := int64(C.get_frame_pts(pkt))
+
+		// Convert PTS to microseconds
+		timestampUs := pktPts * 1000 / int64(e.fps)
+
+		e.frames = append(e.frames, encodedFrame{
+			data:        frameData,
+			timestampUs: timestampUs,
+			isKeyframe:  keyframe,
+		})
+	}
+	return got
 }
 
 func (e *Encoder) cleanup() {
