@@ -256,23 +256,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Install Chrome (Linux amd64)
-        if: runner.os == 'Linux' && matrix.arch == 'amd64'
-        run: |
-          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
-
+      # ubuntu-latest (26.04) has no apt-key, so Google's apt repository can
+      # no longer be added the old way. setup-chrome covers every runner except
+      # Linux arm64, for which Google publishes no Chrome build.
       - name: Install Chromium (Linux arm64)
         if: runner.os == 'Linux' && matrix.arch == 'arm64'
         run: |
           sudo apt-get update
           sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium
 
-      - name: Install Chrome (Windows)
-        if: runner.os == 'Windows'
-        id: setup-chrome-windows
+      - name: Install Chrome
+        if: ${{ !(runner.os == 'Linux' && matrix.arch == 'arm64') }}
+        id: setup-chrome
         uses: browser-actions/setup-chrome@v1
         with:
           chrome-version: stable
@@ -282,6 +277,7 @@ jobs:
         env:
           LOADSHOW_E2E: "1"
           LOADSHOW_BINARY: ${{ github.workspace }}/loadshow
+          CHROME_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
         run: |
           go test -v -timeout 15m ./tests/e2e/...
 
@@ -290,7 +286,7 @@ jobs:
         env:
           LOADSHOW_E2E: "1"
           LOADSHOW_BINARY: ${{ github.workspace }}/loadshow.exe
-          CHROME_PATH: ${{ steps.setup-chrome-windows.outputs.chrome-path }}
+          CHROME_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
         run: |
           go test -v -timeout 15m ./tests/e2e/...
 
