@@ -269,3 +269,39 @@ func BenchmarkEncoder_EncodeFrame(b *testing.B) {
 		}
 	}
 }
+
+// TestEncoder_EndFlushesAllFrames guards against dropping the tail of the
+// video. libaom keeps up to g_lag_in_frames (35 by default) frames for
+// look-ahead and returns at most one of them per flush call, so End must keep
+// flushing until the encoder is empty.
+func TestEncoder_EndFlushesAllFrames(t *testing.T) {
+	encoder := New()
+	if err := encoder.Begin(64, 64, 30.0, ports.EncoderOptions{Quality: 40}); err != nil {
+		t.Fatalf("Begin failed: %v", err)
+	}
+
+	const n = 60
+	for i := 0; i < n; i++ {
+		img := createTestImage(64, 64, color.RGBA{R: uint8(i * 4), G: 0, B: 255, A: 255})
+		if err := encoder.EncodeFrame(img, i*33); err != nil {
+			t.Fatalf("EncodeFrame %d failed: %v", i, err)
+		}
+	}
+
+	if _, err := encoder.End(); err != nil {
+		t.Fatalf("End failed: %v", err)
+	}
+	frames := encoder.frames
+
+	if len(frames) != n {
+		t.Fatalf("expected %d encoded frames, got %d", n, len(frames))
+	}
+	for i := 1; i < len(frames); i++ {
+		if frames[i].timestampUs <= frames[i-1].timestampUs {
+			t.Fatalf("timestamps not increasing at %d: %d then %d", i, frames[i-1].timestampUs, frames[i].timestampUs)
+		}
+	}
+	if last, want := frames[n-1].timestampUs, int64((n-1)*33*1000); last != want {
+		t.Errorf("last frame timestamp %dus, want %dus", last, want)
+	}
+}

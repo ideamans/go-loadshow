@@ -20,7 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: |
+      # Branch pushes (build, release-windows) are test builds with no tag to
+      # compare, so only tags are checked.
+      - if: startsWith(github.ref, 'refs/tags/')
+        run: |
           tag="${GITHUB_REF_NAME#v}"
           declared=$(grep -oE 'PluginVersion = "[^"]+"' cmd/loadshow/main.go | cut -d'"' -f2)
           if [ "$tag" != "$declared" ]; then
@@ -32,6 +35,10 @@ jobs:
     needs: verify-version
     name: Build (${{ matrix.os }}-${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
+    # The macOS binary (and the libaom built for it) would otherwise require
+    # the runner's own macOS version. Ignored by the other platforms.
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '14.0'
     strategy:
       fail-fast: false
       matrix:
@@ -44,7 +51,7 @@ jobs:
             runner: ubuntu-24.04-arm
           - os: darwin
             arch: arm64
-            runner: macos-14
+            runner: macos-15
           - os: windows
             arch: amd64
             runner: windows-latest
@@ -56,7 +63,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version-file: go.mod
           cache: false  # Disable built-in caching to avoid tar extraction issues
 
       - name: Get version
@@ -80,7 +87,7 @@ jobs:
           path: |
             /usr/local/lib/libaom.a
             /usr/local/include/aom
-          key: libaom-3.8.0-linux-${{ matrix.arch }}-v2-${{ hashFiles('scripts/setup-deps.sh') }}
+          key: libaom-3.15.3-linux-${{ matrix.arch }}-v2-${{ hashFiles('scripts/setup-deps.sh') }}
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
@@ -110,12 +117,14 @@ jobs:
           path: |
             /opt/homebrew/lib/libaom.a
             /opt/homebrew/include/aom
-          key: libaom-3.8.0-darwin-arm64-v2-${{ hashFiles('scripts/setup-deps.sh') }}
+          key: libaom-3.15.3-darwin-arm64-v2-${{ hashFiles('scripts/setup-deps.sh') }}
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install cmake ninja pkg-config nasm
+          # libvmaf is linked by the cgo flags (pkg/adapters/av1*), so it has
+          # to be installed even when libaom comes from the cache.
+          brew install cmake ninja pkg-config nasm libvmaf
           # Build libaom from source if not cached
           if [ "${{ steps.cache-libaom-macos.outputs.cache-hit }}" != "true" ]; then
             make deps
@@ -216,7 +225,7 @@ jobs:
             runner: ubuntu-24.04-arm
           - os: darwin
             arch: arm64
-            runner: macos-14
+            runner: macos-15
           - os: windows
             arch: amd64
             runner: windows-latest
@@ -228,7 +237,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version-file: go.mod
           cache: false
 
       - name: Download binary
