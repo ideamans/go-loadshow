@@ -2,7 +2,7 @@ module github.com/ideamans/go-loadshow
 
 go 1.25.0
 
-toolchain go1.25.14
+toolchain go1.26.11
 
 require (
 	github.com/Eyevinn/mp4ff v0.50.0
