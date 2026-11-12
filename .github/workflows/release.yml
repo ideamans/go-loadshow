@@ -257,8 +257,11 @@ jobs:
           sudo apt-get install -y ffmpeg
 
       # ubuntu-latest (26.04) has no apt-key, so Google's apt repository can
-      # no longer be added the old way. setup-chrome covers every runner except
-      # Linux arm64, for which Google publishes no Chrome build.
+      # no longer be added the old way; setup-chrome installs Chrome on Linux
+      # amd64 and Windows. Linux arm64 has no Google Chrome build (apt
+      # Chromium instead), and macOS uses the Chrome preinstalled on the
+      # runner: the copy setup-chrome unpacks into the tool cache made the
+      # recording hang until the 15-minute test timeout.
       - name: Install Chromium (Linux arm64)
         if: runner.os == 'Linux' && matrix.arch == 'arm64'
         run: |
@@ -266,7 +269,7 @@ jobs:
           sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium
 
       - name: Install Chrome
-        if: ${{ !(runner.os == 'Linux' && matrix.arch == 'arm64') }}
+        if: (runner.os == 'Linux' && matrix.arch == 'amd64') || runner.os == 'Windows'
         id: setup-chrome
         uses: browser-actions/setup-chrome@v1
         with:
