@@ -41,7 +41,7 @@ import (
 // The release workflow refuses a tag that disagrees with it, and
 // TestPluginSkills asserts plugin.json carries the same value. version below
 // is overwritten by -ldflags at build time and reads "dev" locally.
-const PluginVersion = "1.6.0"
+const PluginVersion = "1.6.1"
 
 var version = PluginVersion
 
