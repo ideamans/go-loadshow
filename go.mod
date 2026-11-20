@@ -12,7 +12,7 @@ require (
 	github.com/ideamans/go-l10n v1.0.3
 	github.com/ideamans/go-llm-cli-kit v0.1.1
 	github.com/mattn/go-isatty v0.0.20
-	github.com/playwright-community/playwright-go v0.5200.1
+	github.com/mxschmitt/playwright-go v0.6401.0
 	github.com/urfave/cli/v2 v2.27.7
 	golang.org/x/image v0.45.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -21,8 +21,7 @@ require (
 require (
 	github.com/chromedp/sysutil v1.1.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
-	github.com/deckarep/golang-set/v2 v2.7.0 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.5 // indirect
+	github.com/deckarep/golang-set/v2 v2.8.0 // indirect
 	github.com/go-json-experiment/json v0.0.0-20250725192818-e39067aee2d2 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect

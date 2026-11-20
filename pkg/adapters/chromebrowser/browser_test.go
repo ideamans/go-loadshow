@@ -13,13 +13,11 @@ import (
 // download Chromium through Playwright when the machine has no browser.
 //
 // It is opt-in, because it is not a unit test — it pulls a driver and a
-// ~150 MB browser from a third-party CDN, and that dependency has already
-// broken once. playwright-go v0.5200.1 fetches its driver from
-// *.azureedge.net, which has been retired and now returns 404; the release
-// that moved to the npm registry (v0.6100.0) declares the wrong module path
-// and cannot be required. Until that is resolved upstream this path cannot
-// work on a clean machine, and asserting it in CI only produces a red build
-// that says nothing about this repository.
+// ~150 MB browser from a third-party CDN. That dependency has broken once:
+// playwright-go v0.5200.1 fetched its driver from *.azureedge.net, which was
+// retired. Upstream now publishes as github.com/mxschmitt/playwright-go and
+// downloads from the npm registry and the Playwright CDN. Where the browser
+// lands inside the cache is covered offline by TestFindPlaywrightChromium.
 //
 // Set LOADSHOW_TEST_PLAYWRIGHT_INSTALL=1 to run it.
 func TestBrowser_Launch_AutoInstallChromium(t *testing.T) {
